@@ -38,49 +38,23 @@ The server will be available at `http://localhost:8000`
 
 ## Usage
 
-### Linux Client (Recommended)
-
-A command-line client is available for easy interaction with the server.
-
-#### Initial Setup
+### Bash Client (Recommended)
 
 ```bash
-# Configure the client (first time only)
-./loglife-client.py config --server http://localhost:3001 --api-key your-secret-key
+# Set environment variables
+export LOGLIFE_SERVER=http://localhost:3001
+export LOGLIFE_API_KEY=your-secret-key
 
-# Or copy to your PATH for system-wide access
-sudo cp loglife-client.py /usr/local/bin/loglife
+# Log an event
+./loglife log temperature 25.5
+
+# Query logs
+./loglife query
 ```
 
-#### Log Events
-
+**Optional**: Copy to PATH for system-wide use
 ```bash
-./loglife-client.py log temperature 25.5
-./loglife-client.py log "server status" "running"
-./loglife-client.py log cpu_usage 45.2
-```
-
-#### Query Logs
-
-```bash
-# Get all logs (last 100)
-./loglife-client.py query
-
-# Limit results
-./loglife-client.py query --limit 10
-
-# Filter by event key
-./loglife-client.py query --event temperature
-
-# Show current configuration
-./loglife-client.py config --show
-```
-
-#### One-time Override
-
-```bash
-# Override config for a single command
-./loglife-client.py log temperature 23 --server http://remote-server:3001 --api-key other-key
+sudo cp loglife /usr/local/bin/
 ```
 
 ### Manual API Usage (curl)
