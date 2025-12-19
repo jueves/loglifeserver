@@ -4,9 +4,13 @@ services:
   api:
     build: .
     ports:
-      - "8000:8000"
+      - "8443:8443"  # HTTPS port (default)
+      - "8000:8000"  # HTTP port (optional, for backward compatibility)
     volumes:
       - ./data:/app/data
+      - ./certs:/app/certs  # Persist certificates across container restarts
     environment:
       - API_KEY=${API_KEY:-my-secret-key}
+      - CERT_PATH=${CERT_PATH:-certs/cert.pem}
+      - KEY_PATH=${KEY_PATH:-certs/key.pem}
     restart: unless-stopped

@@ -2,10 +2,13 @@ from fastapi import FastAPI, HTTPException
 from datetime import datetime
 import sqlite3
 import os
+import hashlib
 
 app = FastAPI()
 API_KEY = os.getenv("API_KEY", "my-secret-key")
 DB_PATH = os.getenv("DB_PATH", "data/events.db")
+CERT_PATH = os.getenv("CERT_PATH", "certs/cert.pem")
+KEY_PATH = os.getenv("KEY_PATH", "certs/key.pem")
 
 # Initialize database
 def init_db():
@@ -50,3 +53,39 @@ def get_logs(key: str):
             for row in cursor.fetchall()]
     conn.close()
     return logs
+
+@app.get("/fingerprint")
+def get_fingerprint():
+    """
+    Get the SHA-256 fingerprint of the server's TLS certificate.
+    Clients should verify this fingerprint to ensure server identity.
+    No authentication required - fingerprint is public information.
+    """
+    try:
+        if not os.path.exists(CERT_PATH):
+            raise HTTPException(
+                status_code=503,
+                detail="Certificate not found. Server may be running in HTTP mode."
+            )
+
+        # Read the certificate file
+        with open(CERT_PATH, "rb") as f:
+            cert_pem = f.read()
+
+        # Parse PEM to get DER format for fingerprinting
+        from cryptography import x509
+        from cryptography.hazmat.primitives import serialization
+
+        cert = x509.load_pem_x509_certificate(cert_pem)
+        cert_der = cert.public_bytes(serialization.Encoding.DER)
+
+        # Calculate SHA-256 fingerprint
+        fingerprint = hashlib.sha256(cert_der).hexdigest()
+
+        return {
+            "fingerprint": fingerprint,
+            "algorithm": "sha256",
+            "certificate_path": CERT_PATH
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading certificate: {str(e)}")

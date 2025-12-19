@@ -42,3 +42,10 @@ Thumbs.db
 
 # Configuration
 .env
+
+# TLS Certificates (should be generated locally, not committed)
+certs/
+*.pem
+*.key
+*.crt
+.server_fingerprint

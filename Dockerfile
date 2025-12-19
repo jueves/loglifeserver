@@ -6,7 +6,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY main.py .
+COPY generate_cert.py .
+COPY run_server.py .
 
-EXPOSE 8000
+# Expose both HTTP and HTTPS ports
+EXPOSE 8000 8443
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run with HTTPS by default (will generate certificate if needed)
+CMD ["python", "run_server.py", "--host", "0.0.0.0", "--port", "8443"]
