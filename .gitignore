@@ -1,7 +1,8 @@
-# Base de datos SQLite
+# SQLite database
 *.db
 *.sqlite
 *.sqlite3
+data/
 
 # Python
 __pycache__/
@@ -38,3 +39,6 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
+
+# Docker
+.env

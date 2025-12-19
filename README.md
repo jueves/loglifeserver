@@ -4,28 +4,39 @@ Minimalist REST API for logging events with key-value structure using FastAPI an
 
 ## Features
 
-- 🚀 Ultra-minimalist (~48 lines of code)
+- 🚀 Ultra-minimalist (~55 lines of code)
 - 🔒 API key authentication
 - 💾 Embedded SQLite database
 - ⏱️ Automatic timestamps
 - 📊 Query last 100 records
+- 🐳 Docker support with persistent volumes
 
 ## Installation
+
+### Option 1: Docker (Recommended)
+
+```bash
+# Using docker-compose
+docker-compose up -d
+
+# Or build and run with Docker
+docker build -t logging-api .
+docker run -d -p 8000:8000 -v $(pwd)/data:/app/data logging-api
+```
+
+### Option 2: Local Python
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
-```
 
-## Usage
-
-### Run server
-
-```bash
+# Run server
 uvicorn main:app --reload
 ```
 
 The server will be available at `http://localhost:8000`
+
+## Usage
 
 ### Log an event
 
@@ -60,10 +71,26 @@ curl "http://localhost:8000/logs?key=my-secret-key"
 
 ### Change API Key
 
-Edit the `main.py` file and modify the constant:
+**With Docker:**
+
+Create a `.env` file (copy from `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```
+API_KEY=your-secret-key-here
+```
+
+**Without Docker:**
+
+Set environment variable or edit `main.py`:
 
 ```python
-API_KEY = "your-secret-key-here"
+API_KEY = os.getenv("API_KEY", "my-secret-key")
 ```
 
 ## Database Structure
@@ -99,9 +126,27 @@ Retrieves the last 100 events ordered by timestamp in descending order.
 
 **Response:** Array of events with `id`, `event_key`, `value`, `timestamp`
 
+## Docker Details
+
+### Volume Persistence
+
+The database is stored in `./data/events.db` and mounted as a volume in Docker, ensuring data persists across container restarts.
+
+### Environment Variables
+
+- `API_KEY`: Authentication key (default: `my-secret-key`)
+- `DB_PATH`: Database file path (default: `data/events.db`)
+
+### Stop Container
+
+```bash
+docker-compose down
+```
+
 ## Notes
 
-- The `events.db` database is created automatically when starting the application
+- The database is created automatically in the `data/` directory when starting the application
+- With Docker, data persists in the mounted volume
 - Designed for low volume (~7-10 records/day)
 - No complex dependencies, ideal for learning and iteration
 - SQLite is sufficient for this data volume

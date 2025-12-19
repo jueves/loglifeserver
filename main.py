@@ -1,13 +1,16 @@
 from fastapi import FastAPI, HTTPException
 from datetime import datetime
 import sqlite3
+import os
 
 app = FastAPI()
-API_KEY = "my-secret-key"
+API_KEY = os.getenv("API_KEY", "my-secret-key")
+DB_PATH = os.getenv("DB_PATH", "data/events.db")
 
 # Initialize database
 def init_db():
-    conn = sqlite3.connect("events.db")
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,7 +31,7 @@ def verify_key(key: str):
 @app.get("/log")
 def log_event(event_key: str, value: str, key: str):
     verify_key(key)
-    conn = sqlite3.connect("events.db")
+    conn = sqlite3.connect(DB_PATH)
     timestamp = datetime.now().isoformat()
     conn.execute("INSERT INTO events (event_key, value, timestamp) VALUES (?, ?, ?)",
                  (event_key, value, timestamp))
@@ -39,7 +42,7 @@ def log_event(event_key: str, value: str, key: str):
 @app.get("/logs")
 def get_logs(key: str):
     verify_key(key)
-    conn = sqlite3.connect("events.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.execute(
         "SELECT id, event_key, value, timestamp FROM events ORDER BY timestamp DESC LIMIT 100"
     )
