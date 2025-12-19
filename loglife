@@ -1,6 +1,27 @@
 #!/bin/bash
 # LogLife Client - Minimal bash script
 
+# Load .env file if it exists
+if [ -f .env ]; then
+  # Parse .env file, ignoring comments and empty lines
+  while IFS='=' read -r key value || [ -n "$key" ]; do
+    # Skip comments and empty lines
+    [[ "$key" =~ ^#.*$ ]] && continue
+    [[ -z "$key" ]] && continue
+
+    # Remove leading/trailing whitespace and quotes
+    key=$(echo "$key" | xargs)
+    value=$(echo "$value" | xargs | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+
+    # Export the variable
+    if [ "$key" = "LOGLIFE_SERVER" ]; then
+      LOGLIFE_SERVER="$value"
+    elif [ "$key" = "LOGLIFE_API_KEY" ]; then
+      LOGLIFE_API_KEY="$value"
+    fi
+  done < .env
+fi
+
 SERVER="${LOGLIFE_SERVER:-http://localhost:3001}"
 API_KEY="${LOGLIFE_API_KEY:-change-me-in-production}"
 
@@ -22,9 +43,14 @@ case "$1" in
     echo "  $0 log temperature 25.5"
     echo "  $0 query"
     echo ""
-    echo "Environment variables:"
-    echo "  LOGLIFE_SERVER  (default: http://localhost:3001)"
-    echo "  LOGLIFE_API_KEY (default: change-me-in-production)"
+    echo "Configuration:"
+    echo "  Create a .env file with:"
+    echo "    LOGLIFE_SERVER=http://localhost:3001"
+    echo "    LOGLIFE_API_KEY=your-api-key"
+    echo ""
+    echo "  Or use environment variables:"
+    echo "    LOGLIFE_SERVER  (default: http://localhost:3001)"
+    echo "    LOGLIFE_API_KEY (default: change-me-in-production)"
     exit 1
     ;;
 esac

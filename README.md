@@ -40,16 +40,28 @@ The server will be available at `http://localhost:8000`
 
 ### Bash Client (Recommended)
 
+The client script automatically reads configuration from a `.env` file if present:
+
 ```bash
-# Set environment variables
-export LOGLIFE_SERVER=http://localhost:3001
-export LOGLIFE_API_KEY=your-secret-key
+# Create .env file (already git-ignored)
+cp .env.example .env
+
+# Edit .env with your settings
+# LOGLIFE_SERVER=http://localhost:3001
+# LOGLIFE_API_KEY=your-secret-key
 
 # Log an event
 ./loglife log temperature 25.5
 
 # Query logs
 ./loglife query
+```
+
+**Alternative**: Use environment variables directly
+```bash
+export LOGLIFE_SERVER=http://localhost:3001
+export LOGLIFE_API_KEY=your-secret-key
+./loglife log temperature 25.5
 ```
 
 **Optional**: Copy to PATH for system-wide use
