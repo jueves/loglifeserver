@@ -1,0 +1,30 @@
+#!/bin/bash
+# LogLife Client - Minimal bash script
+
+SERVER="${LOGLIFE_SERVER:-http://localhost:3001}"
+API_KEY="${LOGLIFE_API_KEY:-change-me-in-production}"
+
+case "$1" in
+  log)
+    if [ -z "$2" ] || [ -z "$3" ]; then
+      echo "Usage: $0 log <event_key> <value>"
+      exit 1
+    fi
+    curl -s "${SERVER}/log?event_key=$2&value=$3&key=${API_KEY}" | jq -r 'if .ok then "✓ Logged" else "✗ Failed" end'
+    ;;
+  query)
+    curl -s "${SERVER}/logs?key=${API_KEY}" | jq -r '.[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"'
+    ;;
+  *)
+    echo "Usage: $0 {log|query}"
+    echo ""
+    echo "Examples:"
+    echo "  $0 log temperature 25.5"
+    echo "  $0 query"
+    echo ""
+    echo "Environment variables:"
+    echo "  LOGLIFE_SERVER  (default: http://localhost:3001)"
+    echo "  LOGLIFE_API_KEY (default: change-me-in-production)"
+    exit 1
+    ;;
+esac

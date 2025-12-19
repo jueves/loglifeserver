@@ -38,10 +38,31 @@ The server will be available at `http://localhost:8000`
 
 ## Usage
 
-### Log an event
+### Bash Client (Recommended)
 
 ```bash
-curl "http://localhost:8000/log?event_key=temperature&value=25.5&key=your-api-key"
+# Set environment variables
+export LOGLIFE_SERVER=http://localhost:3001
+export LOGLIFE_API_KEY=your-secret-key
+
+# Log an event
+./loglife log temperature 25.5
+
+# Query logs
+./loglife query
+```
+
+**Optional**: Copy to PATH for system-wide use
+```bash
+sudo cp loglife /usr/local/bin/
+```
+
+### Manual API Usage (curl)
+
+#### Log an event
+
+```bash
+curl "http://localhost:3001/log?event_key=temperature&value=25.5&key=your-api-key"
 ```
 
 **Response:**
@@ -49,10 +70,10 @@ curl "http://localhost:8000/log?event_key=temperature&value=25.5&key=your-api-ke
 {"ok": true}
 ```
 
-### Query logs
+#### Query logs
 
 ```bash
-curl "http://localhost:8000/logs?key=your-api-key"
+curl "http://localhost:3001/logs?key=your-api-key"
 ```
 
 **Response:**
