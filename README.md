@@ -69,29 +69,21 @@ curl "http://localhost:8000/logs?key=my-secret-key"
 
 ## Configuration
 
-### Change API Key
+### Server Configuration (Safe for Git Pull)
 
-**With Docker:**
-
-Create a `.env` file (copy from `.env.example`):
+Create a `.env` file in the project root (this file is git-ignored and won't be overwritten):
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
+Edit `.env` to set your API key:
 
 ```
 API_KEY=your-secret-key-here
 ```
 
-**Without Docker:**
-
-Set environment variable or edit `main.py`:
-
-```python
-API_KEY = os.getenv("API_KEY", "my-secret-key")
-```
+**Note:** The `.env` file is automatically loaded by docker-compose and is ignored by git, so your configuration persists across updates when you `git pull`.
 
 ## Database Structure
 

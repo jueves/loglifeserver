@@ -40,5 +40,5 @@ wheels/
 .DS_Store
 Thumbs.db
 
-# Docker
+# Configuration
 .env
