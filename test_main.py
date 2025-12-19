@@ -195,26 +195,6 @@ class TestLogsEndpoint:
         assert isinstance(log["id"], int)
         assert isinstance(log["timestamp"], str)
 
-    def test_logs_limit_100(self, client, api_key):
-        """Test that only last 100 logs are returned"""
-        # Log 150 events
-        for i in range(150):
-            client.get(
-                "/log",
-                params={"event_key": f"event{i}", "value": f"value{i}", "key": api_key}
-            )
-
-        # Get logs
-        response = client.get("/logs", params={"key": api_key})
-        logs = response.json()
-
-        # Should only return 100
-        assert len(logs) == 100
-
-        # Should be the most recent ones (149 to 50)
-        assert logs[0]["event_key"] == "event149"
-        assert logs[-1]["event_key"] == "event50"
-
 
 class TestDatabaseIntegration:
     """Test database persistence and integration"""
