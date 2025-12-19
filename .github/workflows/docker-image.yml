@@ -2,9 +2,9 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "claude/logging-api-auAUJ" ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "claude/logging-api-auAUJ" ]
+    branches: [ "main", "master" ]
 
 jobs:
 
