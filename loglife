@@ -2,7 +2,7 @@
 # LogLife Client - Minimal bash script
 
 SERVER="${LOGLIFE_SERVER:-http://localhost:3001}"
-API_KEY="${LOGLIFE_API_KEY:-change-me-in-production}"
+API_KEY=$(grep "loglifeserver-key" .env 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'")
 
 case "$1" in
   log)
@@ -22,9 +22,9 @@ case "$1" in
     echo "  $0 log temperature 25.5"
     echo "  $0 query"
     echo ""
-    echo "Environment variables:"
-    echo "  LOGLIFE_SERVER  (default: http://localhost:3001)"
-    echo "  LOGLIFE_API_KEY (default: change-me-in-production)"
+    echo "Configuration:"
+    echo "  API key: reads 'loglifeserver-key' from .env file"
+    echo "  Server: LOGLIFE_SERVER env var (default: http://localhost:3001)"
     exit 1
     ;;
 esac
