@@ -38,10 +38,57 @@ The server will be available at `http://localhost:8000`
 
 ## Usage
 
-### Log an event
+### Linux Client (Recommended)
+
+A command-line client is available for easy interaction with the server.
+
+#### Initial Setup
 
 ```bash
-curl "http://localhost:8000/log?event_key=temperature&value=25.5&key=your-api-key"
+# Configure the client (first time only)
+./loglife-client.py config --server http://localhost:3001 --api-key your-secret-key
+
+# Or copy to your PATH for system-wide access
+sudo cp loglife-client.py /usr/local/bin/loglife
+```
+
+#### Log Events
+
+```bash
+./loglife-client.py log temperature 25.5
+./loglife-client.py log "server status" "running"
+./loglife-client.py log cpu_usage 45.2
+```
+
+#### Query Logs
+
+```bash
+# Get all logs (last 100)
+./loglife-client.py query
+
+# Limit results
+./loglife-client.py query --limit 10
+
+# Filter by event key
+./loglife-client.py query --event temperature
+
+# Show current configuration
+./loglife-client.py config --show
+```
+
+#### One-time Override
+
+```bash
+# Override config for a single command
+./loglife-client.py log temperature 23 --server http://remote-server:3001 --api-key other-key
+```
+
+### Manual API Usage (curl)
+
+#### Log an event
+
+```bash
+curl "http://localhost:3001/log?event_key=temperature&value=25.5&key=your-api-key"
 ```
 
 **Response:**
@@ -49,10 +96,10 @@ curl "http://localhost:8000/log?event_key=temperature&value=25.5&key=your-api-ke
 {"ok": true}
 ```
 
-### Query logs
+#### Query logs
 
 ```bash
-curl "http://localhost:8000/logs?key=your-api-key"
+curl "http://localhost:3001/logs?key=your-api-key"
 ```
 
 **Response:**
