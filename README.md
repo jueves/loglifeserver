@@ -30,7 +30,7 @@ The server will be available at `http://localhost:8000`
 ### Log an event
 
 ```bash
-curl "http://localhost:8000/log?clave=temperatura&valor=25.5&key=mi-clave-secreta"
+curl "http://localhost:8000/log?event_key=temperature&value=25.5&key=my-secret-key"
 ```
 
 **Response:**
@@ -41,7 +41,7 @@ curl "http://localhost:8000/log?clave=temperatura&valor=25.5&key=mi-clave-secret
 ### Query logs
 
 ```bash
-curl "http://localhost:8000/logs?key=mi-clave-secreta"
+curl "http://localhost:8000/logs?key=my-secret-key"
 ```
 
 **Response:**
@@ -49,8 +49,8 @@ curl "http://localhost:8000/logs?key=mi-clave-secreta"
 [
   {
     "id": 1,
-    "clave": "temperatura",
-    "valor": "25.5",
+    "event_key": "temperature",
+    "value": "25.5",
     "timestamp": "2025-12-19T10:35:00.123456"
   }
 ]
@@ -69,10 +69,10 @@ API_KEY = "your-secret-key-here"
 ## Database Structure
 
 ```sql
-CREATE TABLE eventos (
+CREATE TABLE events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    clave TEXT,
-    valor TEXT,
+    event_key TEXT,
+    value TEXT,
     timestamp DATETIME
 )
 ```
@@ -84,8 +84,8 @@ CREATE TABLE eventos (
 Saves an event to the database.
 
 **Parameters:**
-- `clave` (string): Event name
-- `valor` (string): Event value
+- `event_key` (string): Event name
+- `value` (string): Event value
 - `key` (string): API key for authentication
 
 **Response:** `{"ok": true}`
@@ -97,11 +97,11 @@ Retrieves the last 100 events ordered by timestamp in descending order.
 **Parameters:**
 - `key` (string): API key for authentication
 
-**Response:** Array of events with `id`, `clave`, `valor`, `timestamp`
+**Response:** Array of events with `id`, `event_key`, `value`, `timestamp`
 
 ## Notes
 
-- The `eventos.db` database is created automatically when starting the application
+- The `events.db` database is created automatically when starting the application
 - Designed for low volume (~7-10 records/day)
 - No complex dependencies, ideal for learning and iteration
 - SQLite is sufficient for this data volume
