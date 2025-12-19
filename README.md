@@ -1,50 +1,50 @@
-# API de Logging Simple
+# Simple Logging API
 
-API REST minimalista para registrar eventos con estructura clave-valor usando FastAPI y SQLite.
+Minimalist REST API for logging events with key-value structure using FastAPI and SQLite.
 
-## Características
+## Features
 
-- 🚀 Ultra-minimalista (~48 líneas de código)
-- 🔒 Autenticación mediante API key
-- 💾 Base de datos SQLite embebida
-- ⏱️ Timestamps automáticos
-- 📊 Consulta últimos 100 registros
+- 🚀 Ultra-minimalist (~48 lines of code)
+- 🔒 API key authentication
+- 💾 Embedded SQLite database
+- ⏱️ Automatic timestamps
+- 📊 Query last 100 records
 
-## Instalación
+## Installation
 
 ```bash
-# Instalar dependencias
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-## Uso
+## Usage
 
-### Ejecutar servidor
+### Run server
 
 ```bash
 uvicorn main:app --reload
 ```
 
-El servidor estará disponible en `http://localhost:8000`
+The server will be available at `http://localhost:8000`
 
-### Guardar un evento
+### Log an event
 
 ```bash
 curl "http://localhost:8000/log?clave=temperatura&valor=25.5&key=mi-clave-secreta"
 ```
 
-**Respuesta:**
+**Response:**
 ```json
 {"ok": true}
 ```
 
-### Consultar logs
+### Query logs
 
 ```bash
 curl "http://localhost:8000/logs?key=mi-clave-secreta"
 ```
 
-**Respuesta:**
+**Response:**
 ```json
 [
   {
@@ -56,17 +56,17 @@ curl "http://localhost:8000/logs?key=mi-clave-secreta"
 ]
 ```
 
-## Configuración
+## Configuration
 
-### Cambiar API Key
+### Change API Key
 
-Edita el archivo `main.py` y modifica la constante:
+Edit the `main.py` file and modify the constant:
 
 ```python
-API_KEY = "tu-clave-secreta-aqui"
+API_KEY = "your-secret-key-here"
 ```
 
-## Estructura de Base de Datos
+## Database Structure
 
 ```sql
 CREATE TABLE eventos (
@@ -81,27 +81,27 @@ CREATE TABLE eventos (
 
 ### GET /log
 
-Guarda un evento en la base de datos.
+Saves an event to the database.
 
-**Parámetros:**
-- `clave` (string): Nombre del evento
-- `valor` (string): Valor del evento
-- `key` (string): API key para autenticación
+**Parameters:**
+- `clave` (string): Event name
+- `valor` (string): Event value
+- `key` (string): API key for authentication
 
-**Respuesta:** `{"ok": true}`
+**Response:** `{"ok": true}`
 
 ### GET /logs
 
-Obtiene los últimos 100 eventos ordenados por timestamp descendente.
+Retrieves the last 100 events ordered by timestamp in descending order.
 
-**Parámetros:**
-- `key` (string): API key para autenticación
+**Parameters:**
+- `key` (string): API key for authentication
 
-**Respuesta:** Array de eventos con `id`, `clave`, `valor`, `timestamp`
+**Response:** Array of events with `id`, `clave`, `valor`, `timestamp`
 
-## Notas
+## Notes
 
-- La base de datos `eventos.db` se crea automáticamente al iniciar la aplicación
-- Diseñado para volumen bajo (~7-10 registros/día)
-- Sin dependencias complejas, ideal para aprendizaje e iteración
-- SQLite es suficiente para este volumen de datos
+- The `eventos.db` database is created automatically when starting the application
+- Designed for low volume (~7-10 records/day)
+- No complex dependencies, ideal for learning and iteration
+- SQLite is sufficient for this data volume

@@ -5,7 +5,7 @@ import sqlite3
 app = FastAPI()
 API_KEY = "mi-clave-secreta"
 
-# Inicializar base de datos
+# Initialize database
 def init_db():
     conn = sqlite3.connect("eventos.db")
     conn.execute("""
