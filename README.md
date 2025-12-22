@@ -53,6 +53,9 @@ cp .env.example .env
 # Log an event
 ./loglife log temperature 25.5
 
+# Log with spaces in value (use quotes)
+./loglife log message "este es el valor de la variable"
+
 # Query logs
 ./loglife query
 ```

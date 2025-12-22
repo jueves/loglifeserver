@@ -31,7 +31,10 @@ case "$1" in
       echo "Usage: $0 log <event_key> <value>"
       exit 1
     fi
-    curl -s "${SERVER}/log?event_key=$2&value=$3&key=${API_KEY}" | jq -r 'if .ok then "✓ Logged" else "✗ Failed" end'
+    curl -s -G "${SERVER}/log" \
+      --data-urlencode "event_key=$2" \
+      --data-urlencode "value=$3" \
+      --data-urlencode "key=${API_KEY}" | jq -r 'if .ok then "✓ Logged" else "✗ Failed" end'
     ;;
   query)
     curl -s "${SERVER}/logs?key=${API_KEY}" | jq -r '.[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"'
@@ -41,6 +44,7 @@ case "$1" in
     echo ""
     echo "Examples:"
     echo "  $0 log temperature 25.5"
+    echo "  $0 log mi_variable \"este es el valor de la variable\""
     echo "  $0 query"
     echo ""
     echo "Configuration:"
