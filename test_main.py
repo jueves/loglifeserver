@@ -9,23 +9,22 @@ from unittest.mock import patch
 @pytest.fixture
 def temp_db():
     """Create a temporary database file"""
-    temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
-    temp_db_path = temp_db.name
-    temp_db.close()
+    temp_db_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+    temp_db_path = temp_db_file.name
+    temp_db_file.close()
 
     # Initialize database
     os.makedirs(os.path.dirname(temp_db_path), exist_ok=True)
-    conn = sqlite3.connect(temp_db_path)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            event_key TEXT,
-            value TEXT,
-            timestamp DATETIME
-        )
-    """)
-    conn.commit()
-    conn.close()
+    with sqlite3.connect(temp_db_path) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_key TEXT,
+                value TEXT,
+                timestamp DATETIME
+            )
+        """)
+        conn.commit()
 
     yield temp_db_path
 
@@ -76,7 +75,8 @@ class TestAuthentication:
         """Test getting logs with valid API key"""
         response = client.get("/logs", params={"key": api_key})
         assert response.status_code == 200
-        assert isinstance(response.json(), list)
+        assert "data" in response.json()
+        assert isinstance(response.json()["data"], list)
 
     def test_logs_with_invalid_key(self, client):
         """Test getting logs with invalid API key"""
@@ -143,7 +143,7 @@ class TestLogsEndpoint:
         """Test getting logs when database is empty"""
         response = client.get("/logs", params={"key": api_key})
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json() == {"data": []}
 
     def test_get_logs_after_logging(self, client, api_key):
         """Test getting logs after logging some events"""
@@ -160,7 +160,7 @@ class TestLogsEndpoint:
         # Get logs
         response = client.get("/logs", params={"key": api_key})
         assert response.status_code == 200
-        logs = response.json()
+        logs = response.json()["data"]
         assert len(logs) == 3
 
         # Verify logs are in descending order (most recent first)
@@ -178,7 +178,7 @@ class TestLogsEndpoint:
 
         # Get logs
         response = client.get("/logs", params={"key": api_key})
-        logs = response.json()
+        logs = response.json()["data"]
 
         assert len(logs) == 1
         log = logs[0]
@@ -208,13 +208,12 @@ class TestDatabaseIntegration:
         )
 
         # Query database directly using temp_db fixture
-        conn = sqlite3.connect(temp_db)
-        cursor = conn.execute(
-            "SELECT event_key, value FROM events WHERE event_key = ?",
-            ("persist_test",)
-        )
-        row = cursor.fetchone()
-        conn.close()
+        with sqlite3.connect(temp_db) as conn:
+            cursor = conn.execute(
+                "SELECT event_key, value FROM events WHERE event_key = ?",
+                ("persist_test",)
+            )
+            row = cursor.fetchone()
 
         assert row is not None
         assert row[0] == "persist_test"
@@ -230,7 +229,7 @@ class TestDatabaseIntegration:
 
         # Get the log
         response = client.get("/logs", params={"key": api_key})
-        logs = response.json()
+        logs = response.json()["data"]
 
         assert len(logs) > 0
         timestamp = logs[0]["timestamp"]
@@ -238,3 +237,4 @@ class TestDatabaseIntegration:
         # Check it's a valid ISO format string (should contain T and possibly microseconds)
         assert "T" in timestamp
         assert len(timestamp) > 10  # More than just a date
+

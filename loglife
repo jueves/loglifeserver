@@ -16,16 +16,16 @@ if [ -f .env ]; then
     # Export the variable
     if [ "$key" = "LOGLIFE_SERVER" ]; then
       LOGLIFE_SERVER="$value"
-    elif [ "$key" = "API_KEY" ]; then
-      API_KEY="$value"
+    elif [ "$key" = "LOGLIFE_API_KEY" ]; then
+      LOGLIFE_API_KEY="$value"
     fi
   done < .env
 fi
 
 SERVER="${LOGLIFE_SERVER:-http://localhost:3001}"
-API_KEY="${API_KEY:-change-me-in-production}"
+LOGLIFE_API_KEY="${LOGLIFE_API_KEY:-change-me-in-production}"
 
-# Detectar si es HTTPS y añadir flag para certificados autofirmados
+# Detect if HTTPS and add flag for self-signed certificates
 CURL_OPTS="-s"
 if [[ "$SERVER" == https://* ]]; then
   CURL_OPTS="$CURL_OPTS -k"
@@ -40,27 +40,27 @@ case "$1" in
     curl $CURL_OPTS -G "${SERVER}/log" \
       --data-urlencode "event_key=$2" \
       --data-urlencode "value=$3" \
-      --data-urlencode "key=${API_KEY}" | jq -r 'if .ok then "✓ Logged" else "✗ Failed" end'
+      --data-urlencode "key=${LOGLIFE_API_KEY}" | jq -r 'if .ok then "✓ Logged" else "✗ Failed" end'
     ;;
   query)
-    curl $CURL_OPTS "${SERVER}/logs?key=${API_KEY}" | jq -r '.[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"'
+    curl $CURL_OPTS "${SERVER}/logs?key=${LOGLIFE_API_KEY}" | jq -r '.data[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"'
     ;;
   *)
     echo "Usage: $0 {log|query}"
     echo ""
     echo "Examples:"
     echo "  $0 log temperature 25.5"
-    echo "  $0 log mi_variable \"este es el valor de la variable\""
+    echo "  $0 log my_variable \"this is the variable value\""
     echo "  $0 query"
     echo ""
     echo "Configuration:"
     echo "  Create a .env file with:"
     echo "    LOGLIFE_SERVER=http://localhost:3001"
-    echo "    API_KEY=your-api-key"
+    echo "    LOGLIFE_API_KEY=your-api-key"
     echo ""
     echo "  Or use environment variables:"
-    echo "    LOGLIFE_SERVER  (default: http://localhost:3001)"
-    echo "    API_KEY         (default: change-me-in-production)"
+    echo "    LOGLIFE_SERVER     (default: http://localhost:3001)"
+    echo "    LOGLIFE_API_KEY    (default: change-me-in-production)"
     exit 1
     ;;
 esac

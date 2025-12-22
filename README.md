@@ -21,7 +21,7 @@ docker-compose up -d
 
 # Or build and run with Docker
 docker build -t logging-api .
-docker run -d -p 8000:8000 -v $(pwd)/data:/app/data logging-api
+docker run -d -p 3001:3001 -v $(pwd)/data:/app/data logging-api
 ```
 
 ### Option 2: Local Python
@@ -39,70 +39,70 @@ RELOAD=true python start_server.py
 
 The server will be available at `http://localhost:3001`
 
-## HTTPS Configuration (Servidor Privado)
+## HTTPS Configuration (Private Server)
 
-Para usar HTTPS en tu servidor privado:
+To use HTTPS on your private server:
 
-### 1. Generar certificados autofirmados
+### 1. Generate self-signed certificates
 
 ```bash
 ./generate_cert.sh
 ```
 
-Esto creará los certificados en el directorio `certs/`:
-- `cert.pem`: Certificado público
-- `key.pem`: Clave privada
+This will create certificates in the `certs/` directory:
+- `cert.pem`: Public certificate
+- `key.pem`: Private key
 
-### 2. Configurar variables de entorno
+### 2. Configure environment variables
 
-Edita tu archivo `.env` y descomenta las líneas SSL:
+Edit your `.env` file and uncomment the SSL lines:
 
 ```bash
 SSL_CERT_PATH=certs/cert.pem
 SSL_KEY_PATH=certs/key.pem
 ```
 
-### 3. Actualizar la URL del cliente
+### 3. Update client URL
 
-Cambia la URL en tu `.env` para usar HTTPS:
+Change the URL in your `.env` to use HTTPS:
 
 ```bash
 LOGLIFE_SERVER=https://localhost:3001
 ```
 
-### 4. Iniciar el servidor
+### 4. Start the server
 
 ```bash
 python start_server.py
 ```
 
-El servidor ahora estará disponible en `https://localhost:3001`
+The server will now be available at `https://localhost:3001`
 
-**Nota sobre certificados autofirmados:**
-- Los navegadores mostrarán una advertencia de seguridad - esto es normal
-- Para uso en scripts, puede que necesites deshabilitar la verificación SSL:
-  - curl: usa `-k` o `--insecure`
-  - El cliente `./loglife` maneja esto automáticamente
+**Note about self-signed certificates:**
+- Browsers will show a security warning - this is normal
+- For script usage, you may need to disable SSL verification:
+  - curl: use `-k` or `--insecure`
+  - The `./loglife` client handles this automatically
 
-### Docker con HTTPS
+### Docker with HTTPS
 
-Para usar HTTPS con Docker:
+To use HTTPS with Docker:
 
 ```bash
-# 1. Generar certificados primero
+# 1. Generate certificates first
 ./generate_cert.sh
 
-# 2. Editar .env y descomentar las líneas SSL:
+# 2. Edit .env and uncomment the SSL lines:
 # SSL_CERT_PATH=certs/cert.pem
 # SSL_KEY_PATH=certs/key.pem
 
-# 3. Editar docker-compose.yml y descomentar las variables SSL
+# 3. Edit docker-compose.yml and uncomment the SSL variables
 
-# 4. Iniciar contenedor
+# 4. Start container
 docker-compose up -d
 ```
 
-El directorio `certs/` se monta automáticamente en el contenedor.
+The `certs/` directory is automatically mounted in the container.
 
 ## Usage
 
@@ -116,13 +116,13 @@ cp .env.example .env
 
 # Edit .env with your settings
 # LOGLIFE_SERVER=http://localhost:3001
-# API_KEY=your-secret-key
+# LOGLIFE_API_KEY=your-secret-key
 
 # Log an event
 ./loglife log temperature 25.5
 
 # Log with spaces in value (use quotes)
-./loglife log message "este es el valor de la variable"
+./loglife log message "this is the variable value"
 
 # Query logs
 ./loglife query
@@ -131,7 +131,7 @@ cp .env.example .env
 **Alternative**: Use environment variables directly
 ```bash
 export LOGLIFE_SERVER=http://localhost:3001
-export API_KEY=your-secret-key
+export LOGLIFE_API_KEY=your-secret-key
 ./loglife log temperature 25.5
 ```
 
@@ -161,14 +161,16 @@ curl "http://localhost:3001/logs?key=your-api-key"
 
 **Response:**
 ```json
-[
-  {
-    "id": 1,
-    "event_key": "temperature",
-    "value": "25.5",
-    "timestamp": "2025-12-19T10:35:00.123456"
-  }
-]
+{
+  "data": [
+    {
+      "id": 1,
+      "event_key": "temperature",
+      "value": "25.5",
+      "timestamp": "2025-12-19T10:35:00.123456"
+    }
+  ]
+}
 ```
 
 ## Configuration
