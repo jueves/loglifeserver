@@ -9,7 +9,7 @@ services:
       - ./data:/app/data
       - ./certs:/app/certs  # Montar certificados SSL (opcional)
     environment:
-      - API_KEY=${API_KEY}
+      - LOGLIFE_API_KEY=${LOGLIFE_API_KEY}
       - DB_PATH=${DB_PATH}
       - PORT=3001
       # Descomentar para habilitar HTTPS

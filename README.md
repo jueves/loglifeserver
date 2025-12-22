@@ -184,11 +184,11 @@ cp .env.example .env
 Edit `.env` to set your API key:
 
 ```
-API_KEY=your-secret-key-here
+LOGLIFE_API_KEY=your-secret-key-here
 DB_PATH=data/events.db
 ```
 
-**Security Note:** Always change the default API_KEY before deploying to production. Never commit your `.env` file to version control.
+**Security Note:** Always change the default LOGLIFE_API_KEY before deploying to production. Never commit your `.env` file to version control.
 
 **Note:** The `.env` file is automatically loaded by docker-compose and is ignored by git, so your configuration persists across updates when you `git pull`.
 
@@ -233,7 +233,7 @@ The database is stored in `./data/events.db` and mounted as a volume in Docker, 
 
 ### Environment Variables
 
-- `API_KEY`: Authentication key (required, set in `.env` file)
+- `LOGLIFE_API_KEY`: Authentication key (required, set in `.env` file)
 - `DB_PATH`: Database file path (default: `data/events.db`)
 
 ### Stop Container
