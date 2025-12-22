@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script de inicio del servidor con soporte opcional para HTTPS
+Server startup script with optional HTTPS support
 """
 import os
 import sys
@@ -8,13 +8,11 @@ import uvicorn
 from dotenv import load_dotenv
 
 def main():
-    # Cargar variables de entorno desde .env
-    load_dotenv()
-    # Configuración básica
+    # Basic configuration
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "3001"))
 
-    # Configuración SSL (opcional)
+    # SSL configuration (optional)
     ssl_cert = os.getenv("SSL_CERT_PATH")
     ssl_key = os.getenv("SSL_KEY_PATH")
 
@@ -25,22 +23,22 @@ def main():
         "reload": os.getenv("RELOAD", "false").lower() == "true"
     }
 
-    # Si hay certificados SSL configurados, habilitar HTTPS
+    # If SSL certificates are configured, enable HTTPS
     if ssl_cert and ssl_key:
         if not os.path.exists(ssl_cert):
-            print(f"Error: Certificado no encontrado en {ssl_cert}")
+            print(f"Error: Certificate not found at {ssl_cert}")
             sys.exit(1)
         if not os.path.exists(ssl_key):
-            print(f"Error: Clave privada no encontrada en {ssl_key}")
+            print(f"Error: Private key not found at {ssl_key}")
             sys.exit(1)
 
         config["ssl_certfile"] = ssl_cert
         config["ssl_keyfile"] = ssl_key
-        print(f"🔒 Iniciando servidor HTTPS en https://{host}:{port}")
+        print(f"🔒 Starting HTTPS server at https://{host}:{port}")
     else:
-        print(f"🌐 Iniciando servidor HTTP en http://{host}:{port}")
+        print(f"🌐 Starting HTTP server at http://{host}:{port}")
 
-    # Iniciar servidor
+    # Start server
     uvicorn.run(**config)
 
 if __name__ == "__main__":
