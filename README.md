@@ -116,7 +116,7 @@ cp .env.example .env
 
 # Edit .env with your settings
 # LOGLIFE_SERVER=http://localhost:3001
-# LOGLIFE_API_KEY=your-secret-key
+# API_KEY=your-secret-key
 
 # Log an event
 ./loglife log temperature 25.5
@@ -131,7 +131,7 @@ cp .env.example .env
 **Alternative**: Use environment variables directly
 ```bash
 export LOGLIFE_SERVER=http://localhost:3001
-export LOGLIFE_API_KEY=your-secret-key
+export API_KEY=your-secret-key
 ./loglife log temperature 25.5
 ```
 
