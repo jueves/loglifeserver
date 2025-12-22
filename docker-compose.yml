@@ -9,10 +9,10 @@ services:
       - ./data:/app/data
       - ./certs:/app/certs  # Mount SSL certificates (optional)
     environment:
-      - LOGLIFE_API_KEY=${LOGLIFE_API_KEY}
-      - DB_PATH=${DB_PATH}
-      - PORT=3001
-      # Uncomment to enable HTTPS
-      # - SSL_CERT_PATH=${SSL_CERT_PATH}
-      # - SSL_KEY_PATH=${SSL_KEY_PATH}
+      - LOGLIFE_API_KEY=${LOGLIFE_API_KEY:-my-secret-key}
+      - DB_PATH=${DB_PATH:-data/events.db}
+      - PORT=${PORT:-3001}
+      # Variables SSL - descomentar las siguientes líneas para habilitar HTTPS
+      - SSL_CERT_PATH=${SSL_CERT_PATH}
+      - SSL_KEY_PATH=${SSL_KEY_PATH}
     restart: unless-stopped

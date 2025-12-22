@@ -100,6 +100,10 @@ To use HTTPS with Docker:
 
 # 4. Start container
 docker-compose up -d
+
+# 4. Verificar que está usando HTTPS
+docker-compose logs api
+# Deberías ver: "🔒 Iniciando servidor HTTPS en https://0.0.0.0:3001"
 ```
 
 The `certs/` directory is automatically mounted in the container.

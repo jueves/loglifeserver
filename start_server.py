@@ -5,6 +5,7 @@ Server startup script with optional HTTPS support
 import os
 import sys
 import uvicorn
+from dotenv import load_dotenv
 
 def main():
     # Basic configuration
