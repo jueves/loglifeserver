@@ -4,7 +4,7 @@ import sqlite3
 import os
 
 app = FastAPI()
-API_KEY = os.getenv("API_KEY", "my-secret-key")
+API_KEY = os.getenv("LOGLIFE_API_KEY", "my-secret-key")
 DB_PATH = os.getenv("DB_PATH", "data/events.db")
 
 # Initialize database

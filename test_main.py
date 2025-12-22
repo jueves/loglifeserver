@@ -48,7 +48,7 @@ def client(temp_db):
 @pytest.fixture
 def api_key():
     """Return the API key for testing"""
-    return os.getenv("API_KEY", "my-secret-key")
+    return os.getenv("LOGLIFE_API_KEY", "my-secret-key")
 
 
 class TestAuthentication:
