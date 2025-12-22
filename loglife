@@ -25,19 +25,25 @@ fi
 SERVER="${LOGLIFE_SERVER:-http://localhost:3001}"
 API_KEY="${LOGLIFE_API_KEY:-change-me-in-production}"
 
+# Detectar si es HTTPS y añadir flag para certificados autofirmados
+CURL_OPTS="-s"
+if [[ "$SERVER" == https://* ]]; then
+  CURL_OPTS="$CURL_OPTS -k"
+fi
+
 case "$1" in
   log)
     if [ -z "$2" ] || [ -z "$3" ]; then
       echo "Usage: $0 log <event_key> <value>"
       exit 1
     fi
-    curl -s -G "${SERVER}/log" \
+    curl $CURL_OPTS -G "${SERVER}/log" \
       --data-urlencode "event_key=$2" \
       --data-urlencode "value=$3" \
       --data-urlencode "key=${API_KEY}" | jq -r 'if .ok then "✓ Logged" else "✗ Failed" end'
     ;;
   query)
-    curl -s "${SERVER}/logs?key=${API_KEY}" | jq -r '.[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"'
+    curl $CURL_OPTS "${SERVER}/logs?key=${API_KEY}" | jq -r '.[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"'
     ;;
   *)
     echo "Usage: $0 {log|query}"

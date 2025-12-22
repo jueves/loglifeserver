@@ -30,11 +30,79 @@ docker run -d -p 8000:8000 -v $(pwd)/data:/app/data logging-api
 # Install dependencies
 pip install -r requirements.txt
 
-# Run server
-uvicorn main:app --reload
+# Run server (HTTP)
+python start_server.py
+
+# Or with reload for development
+RELOAD=true python start_server.py
 ```
 
-The server will be available at `http://localhost:8000`
+The server will be available at `http://localhost:3001`
+
+## HTTPS Configuration (Servidor Privado)
+
+Para usar HTTPS en tu servidor privado:
+
+### 1. Generar certificados autofirmados
+
+```bash
+./generate_cert.sh
+```
+
+Esto creará los certificados en el directorio `certs/`:
+- `cert.pem`: Certificado público
+- `key.pem`: Clave privada
+
+### 2. Configurar variables de entorno
+
+Edita tu archivo `.env` y descomenta las líneas SSL:
+
+```bash
+SSL_CERT_PATH=certs/cert.pem
+SSL_KEY_PATH=certs/key.pem
+```
+
+### 3. Actualizar la URL del cliente
+
+Cambia la URL en tu `.env` para usar HTTPS:
+
+```bash
+LOGLIFE_SERVER=https://localhost:3001
+```
+
+### 4. Iniciar el servidor
+
+```bash
+python start_server.py
+```
+
+El servidor ahora estará disponible en `https://localhost:3001`
+
+**Nota sobre certificados autofirmados:**
+- Los navegadores mostrarán una advertencia de seguridad - esto es normal
+- Para uso en scripts, puede que necesites deshabilitar la verificación SSL:
+  - curl: usa `-k` o `--insecure`
+  - El cliente `./loglife` maneja esto automáticamente
+
+### Docker con HTTPS
+
+Para usar HTTPS con Docker:
+
+```bash
+# 1. Generar certificados primero
+./generate_cert.sh
+
+# 2. Editar .env y descomentar las líneas SSL:
+# SSL_CERT_PATH=certs/cert.pem
+# SSL_KEY_PATH=certs/key.pem
+
+# 3. Editar docker-compose.yml y descomentar las variables SSL
+
+# 4. Iniciar contenedor
+docker-compose up -d
+```
+
+El directorio `certs/` se monta automáticamente en el contenedor.
 
 ## Usage
 

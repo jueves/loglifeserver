@@ -4,10 +4,15 @@ services:
   api:
     build: .
     ports:
-      - "8025:8000"
+      - "3001:3001"
     volumes:
       - ./data:/app/data
+      - ./certs:/app/certs  # Montar certificados SSL (opcional)
     environment:
       - API_KEY=${API_KEY}
       - DB_PATH=${DB_PATH}
+      - PORT=3001
+      # Descomentar para habilitar HTTPS
+      # - SSL_CERT_PATH=${SSL_CERT_PATH}
+      # - SSL_KEY_PATH=${SSL_KEY_PATH}
     restart: unless-stopped
