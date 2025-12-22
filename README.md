@@ -89,20 +89,29 @@ El servidor ahora estará disponible en `https://localhost:3001`
 Para usar HTTPS con Docker:
 
 ```bash
-# 1. Generar certificados primero
+# 1. Generar certificados
 ./generate_cert.sh
 
-# 2. Editar .env y descomentar las líneas SSL:
-# SSL_CERT_PATH=certs/cert.pem
-# SSL_KEY_PATH=certs/key.pem
+# 2. Crear archivo .env con las variables SSL
+cat > .env << EOF
+LOGLIFE_API_KEY=tu-clave-secreta
+DB_PATH=data/events.db
+PORT=3001
+SSL_CERT_PATH=certs/cert.pem
+SSL_KEY_PATH=certs/key.pem
+EOF
 
-# 3. Editar docker-compose.yml y descomentar las variables SSL
-
-# 4. Iniciar contenedor
+# 3. Iniciar contenedor (docker-compose lee automáticamente el .env)
 docker-compose up -d
+
+# 4. Verificar que está usando HTTPS
+docker-compose logs api
+# Deberías ver: "🔒 Iniciando servidor HTTPS en https://0.0.0.0:3001"
 ```
 
-El directorio `certs/` se monta automáticamente en el contenedor.
+El directorio `certs/` se monta automáticamente en el contenedor como `/app/certs`.
+
+**Nota**: Si las variables `SSL_CERT_PATH` y `SSL_KEY_PATH` no están configuradas en `.env`, el servidor iniciará en modo HTTP automáticamente.
 
 ## Usage
 
