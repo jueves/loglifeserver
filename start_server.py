@@ -5,8 +5,11 @@ Script de inicio del servidor con soporte opcional para HTTPS
 import os
 import sys
 import uvicorn
+from dotenv import load_dotenv
 
 def main():
+    # Cargar variables de entorno desde .env
+    load_dotenv()
     # Configuración básica
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "3001"))
