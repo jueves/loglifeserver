@@ -4,11 +4,9 @@ Minimalist REST API for logging events with key-value structure using FastAPI an
 
 ## Features
 
-- 🚀 Ultra-minimalist (~55 lines of code)
 - 🔒 API key authentication
 - 💾 Embedded SQLite database
 - ⏱️ Automatic timestamps
-- 📊 Query last 100 records
 - 🐳 Docker support with persistent volumes
 
 ## Installation
@@ -253,5 +251,3 @@ docker-compose down
 - The database is created automatically in the `data/` directory when starting the application
 - With Docker, data persists in the mounted volume
 - Designed for low volume (~7-10 records/day)
-- No complex dependencies, ideal for learning and iteration
-- SQLite is sufficient for this data volume
