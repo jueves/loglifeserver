@@ -42,3 +42,6 @@ Thumbs.db
 
 # Configuration
 .env
+
+# SSL Certificates
+certs/
