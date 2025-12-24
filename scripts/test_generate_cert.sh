@@ -30,7 +30,7 @@ setup_test() {
     TEST_DIR=$(mktemp -d)
     cd "$TEST_DIR"
     # Copy the script to test directory
-    cp "$OLDPWD/generate_cert.sh" .
+    cp "$OLDPWD/scripts/generate_cert.sh" .
     chmod +x generate_cert.sh
 }
 

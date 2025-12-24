@@ -17,7 +17,7 @@ def main():
     ssl_key = os.getenv("SSL_KEY_PATH")
 
     config = {
-        "app": "main:app",
+        "app": "src.main:app",
         "host": host,
         "port": port,
         "reload": os.getenv("RELOAD", "false").lower() == "true"

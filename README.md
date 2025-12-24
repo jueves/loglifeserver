@@ -9,6 +9,32 @@ Minimalist REST API for logging events with key-value structure using FastAPI an
 - ⏱️ Automatic timestamps
 - 🐳 Docker support with persistent volumes
 
+## Repository Structure
+
+```
+loglifeserver/
+├── src/              # Python source code
+│   └── main.py       # FastAPI application
+├── scripts/          # Shell scripts and client
+│   ├── loglife       # Bash client for logging
+│   ├── generate_cert.sh
+│   ├── check_https_docker.sh
+│   └── test_generate_cert.sh
+├── tests/            # Test files
+│   ├── test_main.py
+│   └── test_https.py
+├── docs/             # Additional documentation
+│   ├── INSTALL_CERT_CLIENT.md
+│   └── TROUBLESHOOTING_HTTPS.md
+├── data/             # Database directory (created at runtime)
+├── certs/            # SSL certificates (created at runtime)
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── start_server.py
+└── README.md
+```
+
 ## Installation
 
 ### Option 1: Docker (Recommended)
@@ -44,7 +70,7 @@ To use HTTPS on your private server:
 ### 1. Generate self-signed certificates
 
 ```bash
-./generate_cert.sh
+./scripts/generate_cert.sh
 ```
 
 This will create certificates in the `certs/` directory:
@@ -88,7 +114,7 @@ To use HTTPS with Docker:
 
 ```bash
 # 1. Generate certificates first
-./generate_cert.sh
+./scripts/generate_cert.sh
 
 # 2. Edit .env and uncomment the SSL lines:
 # SSL_CERT_PATH=certs/cert.pem
@@ -121,25 +147,25 @@ cp .env.example .env
 # LOGLIFE_API_KEY=your-secret-key
 
 # Log an event
-./loglife log temperature 25.5
+./scripts/loglife log temperature 25.5
 
 # Log with spaces in value (use quotes)
-./loglife log message "this is the variable value"
+./scripts/loglife log message "this is the variable value"
 
 # Query logs
-./loglife query
+./scripts/loglife query
 ```
 
 **Alternative**: Use environment variables directly
 ```bash
 export LOGLIFE_SERVER=http://localhost:3001
 export LOGLIFE_API_KEY=your-secret-key
-./loglife log temperature 25.5
+./scripts/loglife log temperature 25.5
 ```
 
 **Optional**: Copy to PATH for system-wide use
 ```bash
-sudo cp loglife /usr/local/bin/
+sudo cp scripts/loglife /usr/local/bin/
 ```
 
 ### Manual API Usage (curl)

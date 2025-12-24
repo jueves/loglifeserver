@@ -37,9 +37,9 @@ def temp_db():
 def client(temp_db):
     """Create a test client with a temporary database"""
     # Patch DB_PATH in the main module to use temp database
-    with patch('main.DB_PATH', temp_db):
+    with patch('src.main.DB_PATH', temp_db):
         # Import app after patching
-        from main import app
+        from src.main import app
         client = TestClient(app)
         yield client
 

@@ -3,6 +3,11 @@
 
 set -e  # Exit on error
 
+# Get the script's directory and move to repo root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 CERT_DIR="./certs"
 
 # Check if openssl is installed

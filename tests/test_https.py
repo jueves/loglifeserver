@@ -232,7 +232,7 @@ class TestHTTPSIntegration:
 
     def test_app_import(self):
         """Test that main app can be imported successfully"""
-        from main import app
+        from src.main import app
         assert app is not None
 
     def test_env_example_matches_usage(self):
