@@ -1,8 +1,30 @@
 #!/bin/bash
 # LogLife Client - Minimal bash script
 
+# Enable verbose mode if LOGLIFE_VERBOSE is set
+VERBOSE="${LOGLIFE_VERBOSE:-0}"
+
+# Function to print verbose messages
+verbose() {
+  if [ "$VERBOSE" = "1" ]; then
+    echo "[DEBUG] $*" >&2
+  fi
+}
+
+# Function to print error messages
+error() {
+  echo "[ERROR] $*" >&2
+}
+
+# Check if curl is available
+if ! command -v curl &> /dev/null; then
+  error "curl is not installed. Please install curl to use this script."
+  exit 1
+fi
+
 # Load .env file if it exists
 if [ -f .env ]; then
+  verbose "Loading configuration from .env file"
   # Parse .env file, ignoring comments and empty lines
   while IFS='=' read -r key value || [ -n "$key" ]; do
     # Skip comments and empty lines
@@ -16,19 +38,27 @@ if [ -f .env ]; then
     # Export the variable
     if [ "$key" = "LOGLIFE_SERVER" ]; then
       LOGLIFE_SERVER="$value"
+      verbose "Loaded LOGLIFE_SERVER from .env: $value"
     elif [ "$key" = "LOGLIFE_API_KEY" ]; then
       LOGLIFE_API_KEY="$value"
+      verbose "Loaded LOGLIFE_API_KEY from .env"
     fi
   done < .env
+else
+  verbose "No .env file found, using defaults/environment variables"
 fi
 
 SERVER="${LOGLIFE_SERVER:-http://localhost:3001}"
 LOGLIFE_API_KEY="${LOGLIFE_API_KEY:-change-me-in-production}"
 
+verbose "Using server: $SERVER"
+verbose "Using API key: ${LOGLIFE_API_KEY:0:10}..."
+
 # Detect if HTTPS and add flag for self-signed certificates
 CURL_OPTS="-s"
 if [[ "$SERVER" == https://* ]]; then
   CURL_OPTS="$CURL_OPTS -k"
+  verbose "Using HTTPS with self-signed certificate support"
 fi
 
 case "$1" in
@@ -37,14 +67,100 @@ case "$1" in
       echo "Usage: $0 log <event_key> <value>"
       exit 1
     fi
-    curl $CURL_OPTS -G "${SERVER}/log" \
+
+    verbose "Sending log request to ${SERVER}/log"
+    verbose "Event key: $2"
+    verbose "Value: $3"
+
+    # Store response in a variable to check for errors
+    RESPONSE=$(curl $CURL_OPTS -w "\n%{http_code}" -G "${SERVER}/log" \
       --data-urlencode "event_key=$2" \
       --data-urlencode "value=$3" \
-      --data-urlencode "key=${LOGLIFE_API_KEY}" | jq -r 'if .ok then "✓ Logged" else "✗ Failed" end'
+      --data-urlencode "key=${LOGLIFE_API_KEY}" 2>&1)
+    CURL_EXIT=$?
+
+    # Check if curl succeeded
+    if [ $CURL_EXIT -ne 0 ]; then
+      error "Failed to connect to server at $SERVER"
+      error "curl exit code: $CURL_EXIT"
+      error "This usually means:"
+      error "  - Server is not running or not reachable"
+      error "  - Network connectivity issues"
+      error "  - Invalid server URL"
+      verbose "Response: $RESPONSE"
+      exit 1
+    fi
+
+    # Extract HTTP code and body
+    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+    BODY=$(echo "$RESPONSE" | head -n-1)
+
+    verbose "HTTP Status: $HTTP_CODE"
+    verbose "Response body: $BODY"
+
+    # Check HTTP status
+    if [ "$HTTP_CODE" != "200" ]; then
+      error "Server returned HTTP $HTTP_CODE"
+      error "Response: $BODY"
+      exit 1
+    fi
+
+    # Parse JSON response
+    if command -v jq &> /dev/null; then
+      echo "$BODY" | jq -r 'if .ok then "✓ Logged successfully" else "✗ Failed: " + (.error // "Unknown error") end'
+    else
+      # Fallback if jq is not available
+      if echo "$BODY" | grep -q '"ok":true'; then
+        echo "✓ Logged successfully"
+      else
+        echo "✗ Failed"
+        verbose "Response: $BODY"
+      fi
+    fi
     ;;
+
   query)
-    curl $CURL_OPTS "${SERVER}/logs?key=${LOGLIFE_API_KEY}" | jq -r '.data[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"'
+    verbose "Sending query request to ${SERVER}/logs"
+
+    # Store response in a variable to check for errors
+    RESPONSE=$(curl $CURL_OPTS -w "\n%{http_code}" "${SERVER}/logs?key=${LOGLIFE_API_KEY}" 2>&1)
+    CURL_EXIT=$?
+
+    # Check if curl succeeded
+    if [ $CURL_EXIT -ne 0 ]; then
+      error "Failed to connect to server at $SERVER"
+      error "curl exit code: $CURL_EXIT"
+      error "This usually means:"
+      error "  - Server is not running or not reachable"
+      error "  - Network connectivity issues"
+      error "  - Invalid server URL"
+      verbose "Response: $RESPONSE"
+      exit 1
+    fi
+
+    # Extract HTTP code and body
+    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+    BODY=$(echo "$RESPONSE" | head -n-1)
+
+    verbose "HTTP Status: $HTTP_CODE"
+    verbose "Response body: $BODY"
+
+    # Check HTTP status
+    if [ "$HTTP_CODE" != "200" ]; then
+      error "Server returned HTTP $HTTP_CODE"
+      error "Response: $BODY"
+      exit 1
+    fi
+
+    # Parse JSON response
+    if command -v jq &> /dev/null; then
+      echo "$BODY" | jq -r '.data[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"'
+    else
+      error "jq is not installed. Install jq for formatted output, or view raw response:"
+      echo "$BODY"
+    fi
     ;;
+
   *)
     echo "Usage: $0 {log|query}"
     echo ""
@@ -61,6 +177,16 @@ case "$1" in
     echo "  Or use environment variables:"
     echo "    LOGLIFE_SERVER     (default: http://localhost:3001)"
     echo "    LOGLIFE_API_KEY    (default: change-me-in-production)"
+    echo ""
+    echo "Debugging:"
+    echo "  Enable verbose mode for detailed debugging:"
+    echo "    LOGLIFE_VERBOSE=1 $0 log temperature 25.5"
+    echo ""
+    echo "  This will show:"
+    echo "    - Which server is being contacted"
+    echo "    - HTTP status codes"
+    echo "    - Full server responses"
+    echo "    - Connection error details"
     exit 1
     ;;
 esac
