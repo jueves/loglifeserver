@@ -1,8 +1,9 @@
 #!/bin/bash
 # LogLife Client - Minimal bash script
 
-# Load .env file if it exists
-if [ -f .env ]; then
+# Find .env file in script's directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/.env" ]; then
   while IFS='=' read -r key value || [ -n "$key" ]; do
     [[ "$key" =~ ^#.*$ ]] && continue
     [[ -z "$key" ]] && continue
@@ -13,7 +14,7 @@ if [ -f .env ]; then
     elif [ "$key" = "LOGLIFE_API_KEY" ]; then
       LOGLIFE_API_KEY="$value"
     fi
-  done < .env
+  done < "$SCRIPT_DIR/.env"
 fi
 
 SERVER="${LOGLIFE_SERVER:-http://localhost:3001}"
