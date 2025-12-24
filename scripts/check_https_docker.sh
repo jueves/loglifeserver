@@ -1,6 +1,11 @@
 #!/bin/bash
 # Script para diagnosticar problemas de HTTPS con Docker
 
+# Get the script's directory and move to repo root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 echo "🔍 Diagnóstico de configuración HTTPS con Docker"
 echo "================================================"
 echo ""
@@ -44,14 +49,14 @@ if [ -f "certs/cert.pem" ]; then
     echo "   ✓ certs/cert.pem existe"
 else
     echo "   ✗ certs/cert.pem no encontrado"
-    echo "     Ejecuta: ./generate_cert.sh"
+    echo "     Ejecuta: ./scripts/generate_cert.sh"
 fi
 
 if [ -f "certs/key.pem" ]; then
     echo "   ✓ certs/key.pem existe"
 else
     echo "   ✗ certs/key.pem no encontrado"
-    echo "     Ejecuta: ./generate_cert.sh"
+    echo "     Ejecuta: ./scripts/generate_cert.sh"
 fi
 
 echo ""
@@ -113,7 +118,7 @@ echo ""
 echo "📋 Pasos recomendados para activar HTTPS:"
 echo ""
 echo "1. Asegúrate de tener los certificados:"
-echo "   ./generate_cert.sh"
+echo "   ./scripts/generate_cert.sh"
 echo ""
 echo "2. Verifica tu archivo .env:"
 echo "   cat .env"
