@@ -3,17 +3,11 @@
 
 # Load .env file if it exists
 if [ -f .env ]; then
-  # Parse .env file, ignoring comments and empty lines
   while IFS='=' read -r key value || [ -n "$key" ]; do
-    # Skip comments and empty lines
     [[ "$key" =~ ^#.*$ ]] && continue
     [[ -z "$key" ]] && continue
-
-    # Remove leading/trailing whitespace and quotes
     key=$(echo "$key" | xargs)
     value=$(echo "$value" | xargs | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-
-    # Export the variable
     if [ "$key" = "LOGLIFE_SERVER" ]; then
       LOGLIFE_SERVER="$value"
     elif [ "$key" = "LOGLIFE_API_KEY" ]; then
@@ -37,30 +31,48 @@ case "$1" in
       echo "Usage: $0 log <event_key> <value>"
       exit 1
     fi
-    curl $CURL_OPTS -G "${SERVER}/log" \
+    RESPONSE=$(curl $CURL_OPTS -w "\n%{http_code}" -G "${SERVER}/log" \
       --data-urlencode "event_key=$2" \
       --data-urlencode "value=$3" \
-      --data-urlencode "key=${LOGLIFE_API_KEY}" | jq -r 'if .ok then "✓ Logged" else "✗ Failed" end'
+      --data-urlencode "key=${LOGLIFE_API_KEY}" 2>&1)
+    if [ $? -ne 0 ]; then
+      echo "✗ Failed to connect to $SERVER" >&2
+      exit 1
+    fi
+    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+    BODY=$(echo "$RESPONSE" | head -n-1)
+    if [ "$HTTP_CODE" != "200" ]; then
+      echo "✗ Server error (HTTP $HTTP_CODE): $BODY" >&2
+      exit 1
+    fi
+    echo "$BODY" | jq -r 'if .ok then "✓ Logged" else "✗ " + (.error // "Failed") end' 2>/dev/null || echo "$BODY"
     ;;
+
   query)
-    curl $CURL_OPTS "${SERVER}/logs?key=${LOGLIFE_API_KEY}" | jq -r '.data[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"'
+    RESPONSE=$(curl $CURL_OPTS -w "\n%{http_code}" "${SERVER}/logs?key=${LOGLIFE_API_KEY}" 2>&1)
+    if [ $? -ne 0 ]; then
+      echo "✗ Failed to connect to $SERVER" >&2
+      exit 1
+    fi
+    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+    BODY=$(echo "$RESPONSE" | head -n-1)
+    if [ "$HTTP_CODE" != "200" ]; then
+      echo "✗ Server error (HTTP $HTTP_CODE): $BODY" >&2
+      exit 1
+    fi
+    echo "$BODY" | jq -r '.data[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"' 2>/dev/null || echo "$BODY"
     ;;
+
   *)
     echo "Usage: $0 {log|query}"
     echo ""
     echo "Examples:"
     echo "  $0 log temperature 25.5"
-    echo "  $0 log my_variable \"this is the variable value\""
     echo "  $0 query"
     echo ""
-    echo "Configuration:"
-    echo "  Create a .env file with:"
-    echo "    LOGLIFE_SERVER=http://localhost:3001"
-    echo "    LOGLIFE_API_KEY=your-api-key"
-    echo ""
-    echo "  Or use environment variables:"
-    echo "    LOGLIFE_SERVER     (default: http://localhost:3001)"
-    echo "    LOGLIFE_API_KEY    (default: change-me-in-production)"
+    echo "Configure via .env file:"
+    echo "  LOGLIFE_SERVER=http://localhost:3001"
+    echo "  LOGLIFE_API_KEY=your-api-key"
     exit 1
     ;;
 esac
