@@ -10,7 +10,13 @@ while [ -L "$SCRIPT_PATH" ]; do
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
 
-if [ -f "$SCRIPT_DIR/.env" ]; then
+# Look for .env in repo root (parent directory if script is in scripts/)
+REPO_ROOT="$SCRIPT_DIR"
+if [[ "$SCRIPT_DIR" == */scripts ]]; then
+  REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+fi
+
+if [ -f "$REPO_ROOT/.env" ]; then
   while IFS='=' read -r key value || [ -n "$key" ]; do
     [[ "$key" =~ ^#.*$ ]] && continue
     [[ -z "$key" ]] && continue
@@ -21,7 +27,7 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
     elif [ "$key" = "LOGLIFE_API_KEY" ]; then
       LOGLIFE_API_KEY="$value"
     fi
-  done < "$SCRIPT_DIR/.env"
+  done < "$REPO_ROOT/.env"
 fi
 
 SERVER="${LOGLIFE_SERVER:-http://localhost:3001}"
