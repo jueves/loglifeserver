@@ -1,12 +1,15 @@
-# Simple Logging API
+# LogLife - Personal Data Recording API
 
-Minimalist REST API for logging events with key-value structure using FastAPI and SQLite.
+Minimalist REST API for recording life data with flexible JSON structure using FastAPI and SQLite.
 
 ## Features
 
 - 🔒 API key authentication
-- 💾 Embedded SQLite database
-- ⏱️ Automatic timestamps
+- 💾 Embedded SQLite database with JSON support
+- 📊 Flexible schema - record any data structure
+- ⏱️ Support for historical timestamps
+- ✏️ Easy corrections via delete + recreate
+- 📤 Export functionality for data analysis
 - 🐳 Docker support with persistent volumes
 
 ## Repository Structure
@@ -16,7 +19,7 @@ loglifeserver/
 ├── src/              # Python source code
 │   └── main.py       # FastAPI application
 ├── scripts/          # Shell scripts and client
-│   ├── loglife       # Bash client for logging
+│   ├── loglife       # Bash client for recording data
 │   ├── generate_cert.sh
 │   ├── check_https_docker.sh
 │   └── test_generate_cert.sh
@@ -44,8 +47,8 @@ loglifeserver/
 docker-compose up -d
 
 # Or build and run with Docker
-docker build -t logging-api .
-docker run -d -p 3001:3001 -v $(pwd)/data:/app/data logging-api
+docker build -t loglife-api .
+docker run -d -p 3001:3001 -v $(pwd)/data:/app/data loglife-api
 ```
 
 ### Option 2: Local Python
@@ -106,7 +109,7 @@ The server will now be available at `https://localhost:3001`
 - Browsers will show a security warning - this is normal
 - For script usage, you may need to disable SSL verification:
   - curl: use `-k` or `--insecure`
-  - The `./loglife` client handles this automatically
+  - The `./scripts/loglife` client handles this automatically
 
 ### Docker with HTTPS
 
@@ -125,9 +128,9 @@ To use HTTPS with Docker:
 # 4. Start container
 docker-compose up -d
 
-# 4. Verificar que está usando HTTPS
+# 5. Verify HTTPS is enabled
 docker-compose logs api
-# Deberías ver: "🔒 Iniciando servidor HTTPS en https://0.0.0.0:3001"
+# You should see: "🔒 Starting HTTPS server at https://0.0.0.0:3001"
 ```
 
 The `certs/` directory is automatically mounted in the container.
@@ -146,60 +149,228 @@ cp .env.example .env
 # LOGLIFE_SERVER=http://localhost:3001
 # LOGLIFE_API_KEY=your-secret-key
 
-# Log an event
-./scripts/loglife log temperature 25.5
+# Record current data
+./scripts/loglife record '{"temperature":25.5,"humidity":60}'
 
-# Log with spaces in value (use quotes)
-./scripts/loglife log message "this is the variable value"
+# Record past event
+./scripts/loglife record --timestamp '2025-12-20T14:30:00' '{"workout":"running","duration":30,"distance":5.2}'
 
-# Query logs
+# Query recent records (default: 100)
 ./scripts/loglife query
+./scripts/loglife query --limit 50
+
+# Export all data to JSON file
+./scripts/loglife export
+./scripts/loglife export my_data.json
+
+# Delete a record (for corrections)
+./scripts/loglife delete 123
 ```
 
 **Alternative**: Use environment variables directly
 ```bash
 export LOGLIFE_SERVER=http://localhost:3001
 export LOGLIFE_API_KEY=your-secret-key
-./scripts/loglife log temperature 25.5
+./scripts/loglife record '{"temperature":25.5}'
 ```
 
 **Optional**: Copy to PATH for system-wide use
 ```bash
-sudo cp scripts/loglife /usr/local/bin/
+sudo cp scripts/loglife /usr/local/bin/loglife
 ```
 
-### Manual API Usage (curl)
+## Data Model
 
-#### Log an event
+The system uses a flexible JSON-based schema that allows you to record any data structure:
 
-```bash
-curl "http://localhost:3001/log?event_key=temperature&value=25.5&key=your-api-key"
+### Database Schema
+
+```sql
+CREATE TABLE records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME NOT NULL,        -- When the event happened
+    data JSON NOT NULL,                 -- Your flexible data structure
+    created_at DATETIME NOT NULL        -- When you recorded it
+)
+```
+
+### Example Records
+
+```json
+{
+  "id": 1,
+  "timestamp": "2025-12-20T14:30:00",
+  "data": {
+    "workout": "running",
+    "duration": 30,
+    "distance": 5.2,
+    "heart_rate": 145
+  },
+  "created_at": "2025-12-20T14:35:00"
+}
+```
+
+```json
+{
+  "id": 2,
+  "timestamp": "2025-12-20T08:00:00",
+  "data": {
+    "meal": "breakfast",
+    "calories": 450,
+    "protein": 25,
+    "carbs": 55
+  },
+  "created_at": "2025-12-20T08:15:00"
+}
+```
+
+## API Endpoints
+
+### POST /record
+
+Create a new record with optional custom timestamp.
+
+**Headers:**
+- `X-API-Key`: Your API key (required)
+
+**Request Body:**
+```json
+{
+  "timestamp": "2025-12-20T14:30:00",  // Optional, defaults to now
+  "data": {
+    "temperature": 25.5,
+    "humidity": 60
+  }
+}
 ```
 
 **Response:**
 ```json
-{"ok": true}
+{
+  "ok": true,
+  "id": 123
+}
 ```
 
-#### Query logs
-
+**Example:**
 ```bash
-curl "http://localhost:3001/logs?key=your-api-key"
+curl -X POST http://localhost:3001/record \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{"data": {"temperature": 25.5, "humidity": 60}}'
 ```
+
+### GET /records
+
+Query recent records.
+
+**Headers:**
+- `X-API-Key`: Your API key (required)
+
+**Query Parameters:**
+- `limit`: Maximum number of records to return (default: 100)
 
 **Response:**
 ```json
 {
   "data": [
     {
-      "id": 1,
-      "event_key": "temperature",
-      "value": "25.5",
-      "timestamp": "2025-12-19T10:35:00.123456"
+      "id": 123,
+      "timestamp": "2025-12-20T14:30:00",
+      "data": {
+        "temperature": 25.5,
+        "humidity": 60
+      },
+      "created_at": "2025-12-20T14:35:00"
     }
   ]
 }
 ```
+
+**Examples:**
+```bash
+# Get recent records (up to 100)
+curl -H "X-API-Key: your-api-key" \
+  http://localhost:3001/records
+
+# Limit results
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:3001/records?limit=50"
+```
+
+### GET /export
+
+Export all records as JSON.
+
+**Headers:**
+- `X-API-Key`: Your API key (required)
+
+**Response:**
+```json
+{
+  "records": [
+    {
+      "id": 1,
+      "timestamp": "2025-12-20T14:30:00",
+      "data": {
+        "temperature": 25.5,
+        "humidity": 60
+      },
+      "created_at": "2025-12-20T14:35:00"
+    },
+    {
+      "id": 2,
+      "timestamp": "2025-12-20T15:00:00",
+      "data": {
+        "workout": "running",
+        "duration": 30
+      },
+      "created_at": "2025-12-20T15:05:00"
+    }
+  ],
+  "count": 2
+}
+```
+
+**Example:**
+```bash
+curl -H "X-API-Key: your-api-key" \
+  http://localhost:3001/export > my_data.json
+```
+
+### DELETE /record/{id}
+
+Delete a record by ID.
+
+**Headers:**
+- `X-API-Key`: Your API key (required)
+
+**Response:**
+```json
+{
+  "ok": true
+}
+```
+
+**Example:**
+```bash
+curl -X DELETE -H "X-API-Key: your-api-key" \
+  http://localhost:3001/record/123
+```
+
+## Making Corrections
+
+To correct a record, delete the incorrect one and create a new one with the correct data and original timestamp:
+
+```bash
+# Delete incorrect record
+./scripts/loglife delete 123
+
+# Create corrected record with original timestamp
+./scripts/loglife record --timestamp '2025-12-20T14:30:00' '{"workout":"running","duration":35}'
+```
+
+This approach keeps the data simple and maintains a clean audit trail via the `created_at` field.
 
 ## Configuration
 
@@ -222,38 +393,14 @@ DB_PATH=data/events.db
 
 **Note:** The `.env` file is automatically loaded by docker-compose and is ignored by git, so your configuration persists across updates when you `git pull`.
 
-## Database Structure
+## Migration from Old Format
 
-```sql
-CREATE TABLE events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_key TEXT,
-    value TEXT,
-    timestamp DATETIME
-)
-```
+If you have an existing database with the old `events` table (event_key, value, timestamp), the system will automatically migrate it to the new format on startup:
 
-## Endpoints
+- Old format: `event_key="temperature", value="25.5"`
+- New format: `data={"temperature": "25.5"}`
 
-### GET /log
-
-Saves an event to the database.
-
-**Parameters:**
-- `event_key` (string): Event name
-- `value` (string): Event value
-- `key` (string): API key for authentication
-
-**Response:** `{"ok": true}`
-
-### GET /logs
-
-Retrieves the last 100 events ordered by timestamp in descending order.
-
-**Parameters:**
-- `key` (string): API key for authentication
-
-**Response:** Array of events with `id`, `event_key`, `value`, `timestamp`
+The migration happens automatically and the old table is removed after successful migration.
 
 ## Docker Details
 
@@ -265,6 +412,9 @@ The database is stored in `./data/events.db` and mounted as a volume in Docker, 
 
 - `LOGLIFE_API_KEY`: Authentication key (required, set in `.env` file)
 - `DB_PATH`: Database file path (default: `data/events.db`)
+- `PORT`: Server port (default: `3001`)
+- `SSL_CERT_PATH`: Path to SSL certificate (optional, for HTTPS)
+- `SSL_KEY_PATH`: Path to SSL private key (optional, for HTTPS)
 
 ### Stop Container
 
@@ -272,8 +422,51 @@ The database is stored in `./data/events.db` and mounted as a volume in Docker, 
 docker-compose down
 ```
 
+## Examples
+
+### Track Daily Variables
+
+```bash
+# Morning routine
+./scripts/loglife record '{"weight":75.2,"sleep_hours":7.5,"mood":"good"}'
+
+# Workout
+./scripts/loglife record '{"workout":"running","duration":30,"distance":5.2}'
+
+# Meal
+./scripts/loglife record '{"meal":"lunch","calories":650,"protein":35}'
+
+# Evening metrics
+./scripts/loglife record '{"productivity":8,"stress":3,"energy":7}'
+```
+
+### Record Past Events
+
+```bash
+# Forgot to log yesterday's workout
+./scripts/loglife record --timestamp '2025-12-19T18:00:00' \
+  '{"workout":"cycling","duration":45,"distance":15}'
+```
+
+### Query and Export
+
+```bash
+# See recent records
+./scripts/loglife query
+./scripts/loglife query --limit 10
+
+# Export all data for analysis
+./scripts/loglife export my_data.json
+
+# Then analyze with tools like jq, Python, R, etc.
+jq '.records[] | select(.data.workout == "running")' my_data.json
+```
+
 ## Notes
 
 - The database is created automatically in the `data/` directory when starting the application
 - With Docker, data persists in the mounted volume
-- Designed for low volume (~7-10 records/day)
+- Designed for personal use with flexible data recording
+- All timestamps use ISO 8601 format
+- Records are returned in descending order by timestamp (most recent first)
+- Export returns records in ascending order (chronological)
