@@ -1,5 +1,5 @@
 #!/bin/bash
-# LogLife Client - Minimal bash script
+# LogLife Client - Record data with flexible JSON structure
 
 # Find .env file in script's directory (follow symlinks)
 SCRIPT_PATH="${BASH_SOURCE[0]}"
@@ -40,49 +40,139 @@ if [[ "$SERVER" == https://* ]]; then
 fi
 
 case "$1" in
-  log)
-    if [ -z "$2" ] || [ -z "$3" ]; then
-      echo "Usage: $0 log <event_key> <value>"
+  record)
+    # Parse optional --timestamp flag
+    TIMESTAMP=""
+    shift
+    while [[ "$1" == --* ]]; do
+      case "$1" in
+        --timestamp)
+          TIMESTAMP="$2"
+          shift 2
+          ;;
+        *)
+          echo "Unknown option: $1"
+          exit 1
+          ;;
+      esac
+    done
+
+    if [ -z "$1" ]; then
+      echo "Usage: $0 record [--timestamp YYYY-MM-DDTHH:MM:SS] <json_data>"
+      echo ""
+      echo "Examples:"
+      echo "  $0 record '{\"temperature\":25.5,\"humidity\":60}'"
+      echo "  $0 record --timestamp '2025-12-20T14:30:00' '{\"workout\":\"running\",\"duration\":30}'"
       exit 1
     fi
-    RESPONSE=$(curl $CURL_OPTS -w "\n%{http_code}" -G "${SERVER}/log" \
-      --data-urlencode "event_key=$2" \
-      --data-urlencode "value=$3" \
-      --data-urlencode "key=${LOGLIFE_API_KEY}" 2>&1)
-    if [ $? -ne 0 ]; then
-      echo "✗ Failed to connect to $SERVER" >&2
+
+    JSON_DATA="$1"
+
+    # Build request body
+    if [ -n "$TIMESTAMP" ]; then
+      REQUEST_BODY=$(jq -n --arg ts "$TIMESTAMP" --argjson data "$JSON_DATA" '{timestamp: $ts, data: $data}')
+    else
+      REQUEST_BODY=$(jq -n --argjson data "$JSON_DATA" '{data: $data}')
+    fi
+
+    # Make POST request
+    RESPONSE=$(curl $CURL_OPTS -X POST "${SERVER}/record" \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: ${LOGLIFE_API_KEY}" \
+      -d "$REQUEST_BODY")
+
+    # Check response
+    if echo "$RESPONSE" | jq -e '.ok' > /dev/null 2>&1; then
+      RECORD_ID=$(echo "$RESPONSE" | jq -r '.id')
+      echo "✓ Recorded (ID: $RECORD_ID)"
+    else
+      echo "✗ Failed: $RESPONSE"
       exit 1
     fi
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | head -n-1)
-    if [ "$HTTP_CODE" != "200" ]; then
-      echo "✗ Server error (HTTP $HTTP_CODE): $BODY" >&2
+    ;;
+
+  delete)
+    if [ -z "$2" ]; then
+      echo "Usage: $0 delete <record_id>"
+      echo ""
+      echo "Example:"
+      echo "  $0 delete 123"
       exit 1
     fi
-    echo "$BODY" | jq -r 'if .ok then "✓ Logged" else "✗ " + (.error // "Failed") end' 2>/dev/null || echo "$BODY"
+
+    RECORD_ID="$2"
+
+    # Make DELETE request
+    RESPONSE=$(curl $CURL_OPTS -X DELETE "${SERVER}/record/${RECORD_ID}" \
+      -H "X-API-Key: ${LOGLIFE_API_KEY}")
+
+    # Check response
+    if echo "$RESPONSE" | jq -e '.ok' > /dev/null 2>&1; then
+      echo "✓ Deleted record $RECORD_ID"
+    else
+      echo "✗ Failed: $RESPONSE"
+      exit 1
+    fi
     ;;
 
   query)
-    RESPONSE=$(curl $CURL_OPTS -w "\n%{http_code}" "${SERVER}/logs?key=${LOGLIFE_API_KEY}" 2>&1)
-    if [ $? -ne 0 ]; then
-      echo "✗ Failed to connect to $SERVER" >&2
+    # Parse optional limit flag
+    LIMIT=100
+    if [[ "$2" == "--limit" ]]; then
+      LIMIT="$3"
+    fi
+
+    # Make GET request
+    curl $CURL_OPTS "${SERVER}/records?limit=${LIMIT}" \
+      -H "X-API-Key: ${LOGLIFE_API_KEY}" | \
+      jq -r '.data[] | "\(.id)\t\(.timestamp)\t\(.data | tostring)"'
+    ;;
+
+  export)
+    # Determine output file
+    OUTPUT_FILE="${2:-loglife_export.json}"
+
+    # Make GET request and save to file
+    RESPONSE=$(curl $CURL_OPTS "${SERVER}/export" \
+      -H "X-API-Key: ${LOGLIFE_API_KEY}")
+
+    # Check if request was successful
+    if echo "$RESPONSE" | jq -e '.records' > /dev/null 2>&1; then
+      echo "$RESPONSE" | jq '.' > "$OUTPUT_FILE"
+      RECORD_COUNT=$(echo "$RESPONSE" | jq -r '.count')
+      echo "✓ Exported $RECORD_COUNT records to $OUTPUT_FILE"
+    else
+      echo "✗ Failed: $RESPONSE"
       exit 1
     fi
-    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-    BODY=$(echo "$RESPONSE" | head -n-1)
-    if [ "$HTTP_CODE" != "200" ]; then
-      echo "✗ Server error (HTTP $HTTP_CODE): $BODY" >&2
-      exit 1
-    fi
-    echo "$BODY" | jq -r '.data[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"' 2>/dev/null || echo "$BODY"
     ;;
 
   *)
-    echo "Usage: $0 {log|query}"
+    echo "Usage: $0 {record|delete|query|export}"
+    echo ""
+    echo "Commands:"
+    echo "  record [--timestamp TIMESTAMP] <json_data>  Record new data"
+    echo "  delete <record_id>                          Delete a record"
+    echo "  query [--limit N]                           Query recent records (default: 100)"
+    echo "  export [filename]                           Export all records to JSON file"
     echo ""
     echo "Examples:"
-    echo "  $0 log temperature 25.5"
+    echo "  # Record current data"
+    echo "  $0 record '{\"temperature\":25.5,\"humidity\":60}'"
+    echo ""
+    echo "  # Record past event"
+    echo "  $0 record --timestamp '2025-12-20T14:30:00' '{\"workout\":\"running\",\"duration\":30}'"
+    echo ""
+    echo "  # Delete a record"
+    echo "  $0 delete 123"
+    echo ""
+    echo "  # Query recent records"
     echo "  $0 query"
+    echo "  $0 query --limit 50"
+    echo ""
+    echo "  # Export all data"
+    echo "  $0 export"
+    echo "  $0 export my_data.json"
     echo ""
     echo "Configure via .env file:"
     echo "  LOGLIFE_SERVER=http://localhost:3001"
