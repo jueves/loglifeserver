@@ -1,7 +1,9 @@
 import pytest
 import os
 import sqlite3
+import json
 import tempfile
+from datetime import datetime
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
@@ -12,19 +14,6 @@ def temp_db():
     temp_db_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
     temp_db_path = temp_db_file.name
     temp_db_file.close()
-
-    # Initialize database
-    os.makedirs(os.path.dirname(temp_db_path), exist_ok=True)
-    with sqlite3.connect(temp_db_path) as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                event_key TEXT,
-                value TEXT,
-                timestamp DATETIME
-            )
-        """)
-        conn.commit()
 
     yield temp_db_path
 
@@ -39,7 +28,9 @@ def client(temp_db):
     # Patch DB_PATH in the main module to use temp database
     with patch('main.DB_PATH', temp_db):
         # Import app after patching
-        from main import app
+        from main import app, init_db
+        # Re-initialize the database with the temp path
+        init_db()
         client = TestClient(app)
         yield client
 
@@ -53,188 +44,456 @@ def api_key():
 class TestAuthentication:
     """Test authentication functionality"""
 
-    def test_log_with_valid_key(self, client, api_key):
-        """Test logging with valid API key"""
-        response = client.get(
-            "/log",
-            params={"event_key": "test_event", "value": "test_value", "key": api_key}
+    def test_record_with_valid_key(self, client, api_key):
+        """Test creating record with valid API key"""
+        response = client.post(
+            "/record",
+            json={"data": {"temperature": 25.5}},
+            headers={"X-API-Key": api_key}
         )
         assert response.status_code == 200
-        assert response.json() == {"ok": True}
+        assert response.json()["ok"] is True
+        assert "id" in response.json()
 
-    def test_log_with_invalid_key(self, client):
-        """Test logging with invalid API key"""
-        response = client.get(
-            "/log",
-            params={"event_key": "test_event", "value": "test_value", "key": "wrong-key"}
+    def test_record_with_invalid_key(self, client):
+        """Test creating record with invalid API key"""
+        response = client.post(
+            "/record",
+            json={"data": {"temperature": 25.5}},
+            headers={"X-API-Key": "wrong-key"}
         )
         assert response.status_code == 401
         assert response.json() == {"detail": "Unauthorized"}
 
-    def test_logs_with_valid_key(self, client, api_key):
-        """Test getting logs with valid API key"""
-        response = client.get("/logs", params={"key": api_key})
+    def test_record_without_key(self, client):
+        """Test creating record without API key"""
+        response = client.post(
+            "/record",
+            json={"data": {"temperature": 25.5}}
+        )
+        assert response.status_code == 401
+
+    def test_records_with_valid_key(self, client, api_key):
+        """Test getting records with valid API key"""
+        response = client.get(
+            "/records",
+            headers={"X-API-Key": api_key}
+        )
         assert response.status_code == 200
         assert "data" in response.json()
         assert isinstance(response.json()["data"], list)
 
-    def test_logs_with_invalid_key(self, client):
-        """Test getting logs with invalid API key"""
-        response = client.get("/logs", params={"key": "wrong-key"})
+    def test_records_with_invalid_key(self, client):
+        """Test getting records with invalid API key"""
+        response = client.get(
+            "/records",
+            headers={"X-API-Key": "wrong-key"}
+        )
         assert response.status_code == 401
-        assert response.json() == {"detail": "Unauthorized"}
 
+    def test_delete_with_valid_key(self, client, api_key):
+        """Test deleting record with valid API key"""
+        # First create a record
+        create_response = client.post(
+            "/record",
+            json={"data": {"test": "value"}},
+            headers={"X-API-Key": api_key}
+        )
+        record_id = create_response.json()["id"]
 
-class TestLogEndpoint:
-    """Test /log endpoint functionality"""
-
-    def test_log_single_event(self, client, api_key):
-        """Test logging a single event"""
-        response = client.get(
-            "/log",
-            params={"event_key": "temperature", "value": "25.5", "key": api_key}
+        # Then delete it
+        response = client.delete(
+            f"/record/{record_id}",
+            headers={"X-API-Key": api_key}
         )
         assert response.status_code == 200
         assert response.json() == {"ok": True}
 
-    def test_log_multiple_events(self, client, api_key):
-        """Test logging multiple events"""
-        events = [
-            {"event_key": "temperature", "value": "25.5"},
-            {"event_key": "humidity", "value": "60"},
-            {"event_key": "pressure", "value": "1013"},
-        ]
+    def test_delete_with_invalid_key(self, client, api_key):
+        """Test deleting record with invalid API key"""
+        # First create a record
+        create_response = client.post(
+            "/record",
+            json={"data": {"test": "value"}},
+            headers={"X-API-Key": api_key}
+        )
+        record_id = create_response.json()["id"]
 
-        for event in events:
-            response = client.get(
-                "/log",
-                params={**event, "key": api_key}
-            )
-            assert response.status_code == 200
-            assert response.json() == {"ok": True}
+        # Try to delete with wrong key
+        response = client.delete(
+            f"/record/{record_id}",
+            headers={"X-API-Key": "wrong-key"}
+        )
+        assert response.status_code == 401
 
-    def test_log_with_special_characters(self, client, api_key):
-        """Test logging with special characters in values"""
-        response = client.get(
-            "/log",
-            params={
-                "event_key": "message",
-                "value": "Test with spaces & special chars!",
-                "key": api_key
+
+class TestRecordEndpoint:
+    """Test POST /record endpoint functionality"""
+
+    def test_create_simple_record(self, client, api_key):
+        """Test creating a simple record with current timestamp"""
+        response = client.post(
+            "/record",
+            json={"data": {"temperature": 25.5, "humidity": 60}},
+            headers={"X-API-Key": api_key}
+        )
+        assert response.status_code == 200
+        assert response.json()["ok"] is True
+        assert isinstance(response.json()["id"], int)
+
+    def test_create_record_with_custom_timestamp(self, client, api_key):
+        """Test creating a record with a custom timestamp"""
+        custom_timestamp = "2025-12-20T14:30:00"
+        response = client.post(
+            "/record",
+            json={
+                "timestamp": custom_timestamp,
+                "data": {"workout": "running", "duration": 30}
+            },
+            headers={"X-API-Key": api_key}
+        )
+        assert response.status_code == 200
+        assert response.json()["ok"] is True
+
+    def test_create_record_with_invalid_timestamp(self, client, api_key):
+        """Test creating a record with an invalid timestamp format"""
+        response = client.post(
+            "/record",
+            json={
+                "timestamp": "not-a-valid-timestamp",
+                "data": {"test": "value"}
+            },
+            headers={"X-API-Key": api_key}
+        )
+        assert response.status_code == 400
+        assert "Invalid timestamp format" in response.json()["detail"]
+
+    def test_create_record_with_complex_data(self, client, api_key):
+        """Test creating a record with nested JSON data"""
+        complex_data = {
+            "workout": "running",
+            "duration": 30,
+            "distance": 5.2,
+            "splits": [6.0, 5.8, 5.7],
+            "location": {
+                "city": "SF",
+                "park": "Golden Gate"
             }
+        }
+        response = client.post(
+            "/record",
+            json={"data": complex_data},
+            headers={"X-API-Key": api_key}
         )
         assert response.status_code == 200
-        assert response.json() == {"ok": True}
+        assert response.json()["ok"] is True
 
-    def test_log_empty_values(self, client, api_key):
-        """Test logging with empty event_key or value"""
+    def test_create_record_without_data(self, client, api_key):
+        """Test that creating a record requires data field"""
+        response = client.post(
+            "/record",
+            json={},
+            headers={"X-API-Key": api_key}
+        )
+        assert response.status_code == 422  # Validation error
+
+
+class TestDeleteEndpoint:
+    """Test DELETE /record/{id} endpoint functionality"""
+
+    def test_delete_existing_record(self, client, api_key):
+        """Test deleting an existing record"""
+        # Create a record
+        create_response = client.post(
+            "/record",
+            json={"data": {"test": "value"}},
+            headers={"X-API-Key": api_key}
+        )
+        record_id = create_response.json()["id"]
+
+        # Delete it
+        delete_response = client.delete(
+            f"/record/{record_id}",
+            headers={"X-API-Key": api_key}
+        )
+        assert delete_response.status_code == 200
+        assert delete_response.json() == {"ok": True}
+
+        # Verify it's deleted
+        records_response = client.get(
+            "/records",
+            headers={"X-API-Key": api_key}
+        )
+        records = records_response.json()["data"]
+        assert not any(r["id"] == record_id for r in records)
+
+    def test_delete_nonexistent_record(self, client, api_key):
+        """Test deleting a record that doesn't exist"""
+        response = client.delete(
+            "/record/99999",
+            headers={"X-API-Key": api_key}
+        )
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Record not found"}
+
+
+class TestRecordsEndpoint:
+    """Test GET /records endpoint functionality"""
+
+    def test_get_empty_records(self, client, api_key):
+        """Test getting records when database is empty"""
         response = client.get(
-            "/log",
-            params={"event_key": "", "value": "", "key": api_key}
+            "/records",
+            headers={"X-API-Key": api_key}
         )
-        assert response.status_code == 200
-        assert response.json() == {"ok": True}
-
-
-class TestLogsEndpoint:
-    """Test /logs endpoint functionality"""
-
-    def test_get_empty_logs(self, client, api_key):
-        """Test getting logs when database is empty"""
-        response = client.get("/logs", params={"key": api_key})
         assert response.status_code == 200
         assert response.json() == {"data": []}
 
-    def test_get_logs_after_logging(self, client, api_key):
-        """Test getting logs after logging some events"""
-        # Log some events
-        events = [
-            {"event_key": "event1", "value": "value1"},
-            {"event_key": "event2", "value": "value2"},
-            {"event_key": "event3", "value": "value3"},
+    def test_get_records_after_creating(self, client, api_key):
+        """Test getting records after creating some"""
+        # Create multiple records
+        records_data = [
+            {"temperature": 25.5},
+            {"humidity": 60},
+            {"pressure": 1013}
         ]
 
-        for event in events:
-            client.get("/log", params={**event, "key": api_key})
+        for data in records_data:
+            client.post(
+                "/record",
+                json={"data": data},
+                headers={"X-API-Key": api_key}
+            )
 
-        # Get logs
-        response = client.get("/logs", params={"key": api_key})
+        # Get records
+        response = client.get(
+            "/records",
+            headers={"X-API-Key": api_key}
+        )
         assert response.status_code == 200
-        logs = response.json()["data"]
-        assert len(logs) == 3
+        records = response.json()["data"]
+        assert len(records) == 3
 
-        # Verify logs are in descending order (most recent first)
-        assert logs[0]["event_key"] == "event3"
-        assert logs[1]["event_key"] == "event2"
-        assert logs[2]["event_key"] == "event1"
+    def test_records_ordered_by_timestamp_desc(self, client, api_key):
+        """Test that records are ordered by timestamp descending"""
+        # Create records with different timestamps
+        timestamps = [
+            "2025-12-20T10:00:00",
+            "2025-12-20T12:00:00",
+            "2025-12-20T11:00:00"
+        ]
 
-    def test_logs_structure(self, client, api_key):
-        """Test that logs have the correct structure"""
-        # Log an event
-        client.get(
-            "/log",
-            params={"event_key": "test", "value": "test_value", "key": api_key}
+        for ts in timestamps:
+            client.post(
+                "/record",
+                json={"timestamp": ts, "data": {"time": ts}},
+                headers={"X-API-Key": api_key}
+            )
+
+        # Get records
+        response = client.get(
+            "/records",
+            headers={"X-API-Key": api_key}
+        )
+        records = response.json()["data"]
+
+        # Should be in descending order
+        assert records[0]["timestamp"] == "2025-12-20T12:00:00"
+        assert records[1]["timestamp"] == "2025-12-20T11:00:00"
+        assert records[2]["timestamp"] == "2025-12-20T10:00:00"
+
+    def test_records_structure(self, client, api_key):
+        """Test that records have the correct structure"""
+        # Create a record
+        client.post(
+            "/record",
+            json={"data": {"test": "value"}},
+            headers={"X-API-Key": api_key}
         )
 
-        # Get logs
-        response = client.get("/logs", params={"key": api_key})
-        logs = response.json()["data"]
+        # Get records
+        response = client.get(
+            "/records",
+            headers={"X-API-Key": api_key}
+        )
+        records = response.json()["data"]
 
-        assert len(logs) == 1
-        log = logs[0]
+        assert len(records) == 1
+        record = records[0]
 
         # Check structure
-        assert "id" in log
-        assert "event_key" in log
-        assert "value" in log
-        assert "timestamp" in log
+        assert "id" in record
+        assert "timestamp" in record
+        assert "data" in record
+        assert "created_at" in record
 
-        # Check values
-        assert log["event_key"] == "test"
-        assert log["value"] == "test_value"
-        assert isinstance(log["id"], int)
-        assert isinstance(log["timestamp"], str)
+        # Check types
+        assert isinstance(record["id"], int)
+        assert isinstance(record["timestamp"], str)
+        assert isinstance(record["data"], dict)
+        assert isinstance(record["created_at"], str)
+
+    def test_filter_by_limit(self, client, api_key):
+        """Test filtering records by limit"""
+        # Create 5 records
+        for i in range(5):
+            client.post(
+                "/record",
+                json={"data": {"index": i}},
+                headers={"X-API-Key": api_key}
+            )
+
+        # Get with limit=2
+        response = client.get(
+            "/records?limit=2",
+            headers={"X-API-Key": api_key}
+        )
+        records = response.json()["data"]
+        assert len(records) == 2
+
+    def test_filter_by_date(self, client, api_key):
+        """Test filtering records by specific date"""
+        # Create records on different dates
+        client.post(
+            "/record",
+            json={"timestamp": "2025-12-20T10:00:00", "data": {"day": "20"}},
+            headers={"X-API-Key": api_key}
+        )
+        client.post(
+            "/record",
+            json={"timestamp": "2025-12-21T10:00:00", "data": {"day": "21"}},
+            headers={"X-API-Key": api_key}
+        )
+
+        # Filter by date
+        response = client.get(
+            "/records?date=2025-12-20",
+            headers={"X-API-Key": api_key}
+        )
+        records = response.json()["data"]
+
+        assert len(records) == 1
+        assert records[0]["data"]["day"] == "20"
+
+    def test_filter_by_date_range(self, client, api_key):
+        """Test filtering records by date range"""
+        # Create records on different dates
+        dates = ["2025-12-18", "2025-12-20", "2025-12-22", "2025-12-25"]
+        for date in dates:
+            client.post(
+                "/record",
+                json={"timestamp": f"{date}T10:00:00", "data": {"date": date}},
+                headers={"X-API-Key": api_key}
+            )
+
+        # Filter by date range
+        response = client.get(
+            "/records?from_date=2025-12-20&to_date=2025-12-23",
+            headers={"X-API-Key": api_key}
+        )
+        records = response.json()["data"]
+
+        assert len(records) == 2
+        dates_in_range = [r["data"]["date"] for r in records]
+        assert "2025-12-20" in dates_in_range
+        assert "2025-12-22" in dates_in_range
 
 
 class TestDatabaseIntegration:
-    """Test database persistence and integration"""
+    """Test database persistence and migration"""
 
-    def test_event_persisted_in_database(self, client, api_key, temp_db):
-        """Test that logged events are actually persisted in the database"""
-        # Log an event
-        client.get(
-            "/log",
-            params={"event_key": "persist_test", "value": "persist_value", "key": api_key}
+    def test_record_persisted_in_database(self, client, api_key, temp_db):
+        """Test that records are actually persisted in the database"""
+        # Create a record
+        response = client.post(
+            "/record",
+            json={"data": {"persist_test": "persist_value"}},
+            headers={"X-API-Key": api_key}
         )
+        record_id = response.json()["id"]
 
-        # Query database directly using temp_db fixture
+        # Query database directly
         with sqlite3.connect(temp_db) as conn:
             cursor = conn.execute(
-                "SELECT event_key, value FROM events WHERE event_key = ?",
-                ("persist_test",)
+                "SELECT id, data FROM records WHERE id = ?",
+                (record_id,)
             )
             row = cursor.fetchone()
 
         assert row is not None
-        assert row[0] == "persist_test"
-        assert row[1] == "persist_value"
+        assert row[0] == record_id
+        data = json.loads(row[1])
+        assert data["persist_test"] == "persist_value"
+
+    def test_migration_from_old_events_table(self, temp_db):
+        """Test that old events table is migrated to new records table"""
+        # Create old events table with some data
+        with sqlite3.connect(temp_db) as conn:
+            conn.execute("""
+                CREATE TABLE events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_key TEXT,
+                    value TEXT,
+                    timestamp DATETIME
+                )
+            """)
+            conn.execute(
+                "INSERT INTO events (event_key, value, timestamp) VALUES (?, ?, ?)",
+                ("temperature", "25.5", "2025-12-20T10:00:00")
+            )
+            conn.execute(
+                "INSERT INTO events (event_key, value, timestamp) VALUES (?, ?, ?)",
+                ("humidity", "60", "2025-12-20T10:05:00")
+            )
+            conn.commit()
+
+        # Now initialize the app (which should trigger migration)
+        with patch('main.DB_PATH', temp_db):
+            from main import init_db
+            init_db()
+
+        # Verify migration
+        with sqlite3.connect(temp_db) as conn:
+            # Check old table is gone
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='events'"
+            )
+            assert cursor.fetchone() is None
+
+            # Check records table exists and has migrated data
+            cursor = conn.execute("SELECT COUNT(*) FROM records")
+            assert cursor.fetchone()[0] == 2
+
+            # Check data format
+            cursor = conn.execute("SELECT data FROM records ORDER BY timestamp")
+            rows = cursor.fetchall()
+
+            data1 = json.loads(rows[0][0])
+            assert data1 == {"temperature": "25.5"}
+
+            data2 = json.loads(rows[1][0])
+            assert data2 == {"humidity": "60"}
 
     def test_timestamp_format(self, client, api_key):
         """Test that timestamps are stored in ISO format"""
-        # Log an event
-        client.get(
-            "/log",
-            params={"event_key": "timestamp_test", "value": "test", "key": api_key}
+        # Create a record
+        client.post(
+            "/record",
+            json={"data": {"timestamp_test": "test"}},
+            headers={"X-API-Key": api_key}
         )
 
-        # Get the log
-        response = client.get("/logs", params={"key": api_key})
-        logs = response.json()["data"]
+        # Get the record
+        response = client.get(
+            "/records",
+            headers={"X-API-Key": api_key}
+        )
+        records = response.json()["data"]
 
-        assert len(logs) > 0
-        timestamp = logs[0]["timestamp"]
+        assert len(records) > 0
+        timestamp = records[0]["timestamp"]
+        created_at = records[0]["created_at"]
 
-        # Check it's a valid ISO format string (should contain T and possibly microseconds)
+        # Check they're valid ISO format strings
         assert "T" in timestamp
-        assert len(timestamp) > 10  # More than just a date
-
+        assert "T" in created_at

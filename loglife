@@ -1,5 +1,5 @@
 #!/bin/bash
-# LogLife Client - Minimal bash script
+# LogLife Client - Record data with flexible JSON structure
 
 # Load .env file if it exists
 if [ -f .env ]; then
@@ -32,26 +32,142 @@ if [[ "$SERVER" == https://* ]]; then
 fi
 
 case "$1" in
-  log)
-    if [ -z "$2" ] || [ -z "$3" ]; then
-      echo "Usage: $0 log <event_key> <value>"
+  record)
+    # Parse optional --timestamp flag
+    TIMESTAMP=""
+    shift
+    while [[ "$1" == --* ]]; do
+      case "$1" in
+        --timestamp)
+          TIMESTAMP="$2"
+          shift 2
+          ;;
+        *)
+          echo "Unknown option: $1"
+          exit 1
+          ;;
+      esac
+    done
+
+    if [ -z "$1" ]; then
+      echo "Usage: $0 record [--timestamp YYYY-MM-DDTHH:MM:SS] <json_data>"
+      echo ""
+      echo "Examples:"
+      echo "  $0 record '{\"temperature\":25.5,\"humidity\":60}'"
+      echo "  $0 record --timestamp '2025-12-20T14:30:00' '{\"workout\":\"running\",\"duration\":30}'"
       exit 1
     fi
-    curl $CURL_OPTS -G "${SERVER}/log" \
-      --data-urlencode "event_key=$2" \
-      --data-urlencode "value=$3" \
-      --data-urlencode "key=${LOGLIFE_API_KEY}" | jq -r 'if .ok then "✓ Logged" else "✗ Failed" end'
+
+    JSON_DATA="$1"
+
+    # Build request body
+    if [ -n "$TIMESTAMP" ]; then
+      REQUEST_BODY=$(jq -n --arg ts "$TIMESTAMP" --argjson data "$JSON_DATA" '{timestamp: $ts, data: $data}')
+    else
+      REQUEST_BODY=$(jq -n --argjson data "$JSON_DATA" '{data: $data}')
+    fi
+
+    # Make POST request
+    RESPONSE=$(curl $CURL_OPTS -X POST "${SERVER}/record" \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: ${LOGLIFE_API_KEY}" \
+      -d "$REQUEST_BODY")
+
+    # Check response
+    if echo "$RESPONSE" | jq -e '.ok' > /dev/null 2>&1; then
+      RECORD_ID=$(echo "$RESPONSE" | jq -r '.id')
+      echo "✓ Recorded (ID: $RECORD_ID)"
+    else
+      echo "✗ Failed: $RESPONSE"
+      exit 1
+    fi
     ;;
+
+  delete)
+    if [ -z "$2" ]; then
+      echo "Usage: $0 delete <record_id>"
+      echo ""
+      echo "Example:"
+      echo "  $0 delete 123"
+      exit 1
+    fi
+
+    RECORD_ID="$2"
+
+    # Make DELETE request
+    RESPONSE=$(curl $CURL_OPTS -X DELETE "${SERVER}/record/${RECORD_ID}" \
+      -H "X-API-Key: ${LOGLIFE_API_KEY}")
+
+    # Check response
+    if echo "$RESPONSE" | jq -e '.ok' > /dev/null 2>&1; then
+      echo "✓ Deleted record $RECORD_ID"
+    else
+      echo "✗ Failed: $RESPONSE"
+      exit 1
+    fi
+    ;;
+
   query)
-    curl $CURL_OPTS "${SERVER}/logs?key=${LOGLIFE_API_KEY}" | jq -r '.data[] | "\(.id)\t\(.timestamp)\t\(.event_key)\t\(.value)"'
+    # Parse optional flags
+    QUERY_PARAMS="limit=100"
+    shift
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --limit)
+          QUERY_PARAMS="${QUERY_PARAMS}&limit=$2"
+          shift 2
+          ;;
+        --date)
+          QUERY_PARAMS="${QUERY_PARAMS}&date=$2"
+          shift 2
+          ;;
+        --from)
+          QUERY_PARAMS="${QUERY_PARAMS}&from_date=$2"
+          shift 2
+          ;;
+        --to)
+          QUERY_PARAMS="${QUERY_PARAMS}&to_date=$2"
+          shift 2
+          ;;
+        *)
+          echo "Unknown option: $1"
+          exit 1
+          ;;
+      esac
+    done
+
+    # Make GET request
+    curl $CURL_OPTS "${SERVER}/records?${QUERY_PARAMS}" \
+      -H "X-API-Key: ${LOGLIFE_API_KEY}" | \
+      jq -r '.data[] | "\(.id)\t\(.timestamp)\t\(.data | tostring)"'
     ;;
+
   *)
-    echo "Usage: $0 {log|query}"
+    echo "Usage: $0 {record|delete|query}"
+    echo ""
+    echo "Commands:"
+    echo "  record [--timestamp TIMESTAMP] <json_data>  Record new data"
+    echo "  delete <record_id>                          Delete a record"
+    echo "  query [--date DATE] [--from DATE] [--to DATE] [--limit N]  Query records"
     echo ""
     echo "Examples:"
-    echo "  $0 log temperature 25.5"
-    echo "  $0 log my_variable \"this is the variable value\""
+    echo "  # Record current data"
+    echo "  $0 record '{\"temperature\":25.5,\"humidity\":60}'"
+    echo ""
+    echo "  # Record past event"
+    echo "  $0 record --timestamp '2025-12-20T14:30:00' '{\"workout\":\"running\",\"duration\":30}'"
+    echo ""
+    echo "  # Delete a record"
+    echo "  $0 delete 123"
+    echo ""
+    echo "  # Query all records"
     echo "  $0 query"
+    echo ""
+    echo "  # Query specific date"
+    echo "  $0 query --date 2025-12-20"
+    echo ""
+    echo "  # Query date range"
+    echo "  $0 query --from 2025-12-01 --to 2025-12-31"
     echo ""
     echo "Configuration:"
     echo "  Create a .env file with:"
