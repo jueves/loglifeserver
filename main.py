@@ -129,43 +129,21 @@ def delete_record(
 @app.get("/records")
 def get_records(
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
-    limit: int = 100,
-    date: Optional[str] = None,
-    from_date: Optional[str] = None,
-    to_date: Optional[str] = None
+    limit: int = 100
 ):
     """
-    Query records with optional filters
+    Query recent records
 
     - limit: Maximum number of records to return (default: 100)
-    - date: Filter by specific date (YYYY-MM-DD)
-    - from_date: Filter by start date (YYYY-MM-DD)
-    - to_date: Filter by end date (YYYY-MM-DD)
     """
     verify_key(x_api_key)
 
-    query = "SELECT id, timestamp, data, created_at FROM records WHERE 1=1"
-    params = []
-
-    # Filter by specific date
-    if date:
-        query += " AND DATE(timestamp) = ?"
-        params.append(date)
-
-    # Filter by date range
-    if from_date:
-        query += " AND DATE(timestamp) >= ?"
-        params.append(from_date)
-
-    if to_date:
-        query += " AND DATE(timestamp) <= ?"
-        params.append(to_date)
-
-    query += " ORDER BY timestamp DESC LIMIT ?"
-    params.append(limit)
-
     with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.execute(query, params)
+        cursor = conn.execute(
+            "SELECT id, timestamp, data, created_at FROM records "
+            "ORDER BY timestamp DESC LIMIT ?",
+            (limit,)
+        )
         records = [
             {
                 "id": row[0],
@@ -177,6 +155,35 @@ def get_records(
         ]
 
     return {"data": records}
+
+
+@app.get("/export")
+def export_records(
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key")
+):
+    """
+    Export all records as JSON
+
+    Returns all records in the database as a JSON file
+    """
+    verify_key(x_api_key)
+
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute(
+            "SELECT id, timestamp, data, created_at FROM records "
+            "ORDER BY timestamp ASC"
+        )
+        records = [
+            {
+                "id": row[0],
+                "timestamp": row[1],
+                "data": json.loads(row[2]),
+                "created_at": row[3]
+            }
+            for row in cursor.fetchall()
+        ]
+
+    return {"records": records, "count": len(records)}
 
 
 # Initialize database on startup

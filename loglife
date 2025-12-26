@@ -108,47 +108,45 @@ case "$1" in
     ;;
 
   query)
-    # Parse optional flags
-    QUERY_PARAMS="limit=100"
-    shift
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --limit)
-          QUERY_PARAMS="${QUERY_PARAMS}&limit=$2"
-          shift 2
-          ;;
-        --date)
-          QUERY_PARAMS="${QUERY_PARAMS}&date=$2"
-          shift 2
-          ;;
-        --from)
-          QUERY_PARAMS="${QUERY_PARAMS}&from_date=$2"
-          shift 2
-          ;;
-        --to)
-          QUERY_PARAMS="${QUERY_PARAMS}&to_date=$2"
-          shift 2
-          ;;
-        *)
-          echo "Unknown option: $1"
-          exit 1
-          ;;
-      esac
-    done
+    # Parse optional limit flag
+    LIMIT=100
+    if [[ "$2" == "--limit" ]]; then
+      LIMIT="$3"
+    fi
 
     # Make GET request
-    curl $CURL_OPTS "${SERVER}/records?${QUERY_PARAMS}" \
+    curl $CURL_OPTS "${SERVER}/records?limit=${LIMIT}" \
       -H "X-API-Key: ${LOGLIFE_API_KEY}" | \
       jq -r '.data[] | "\(.id)\t\(.timestamp)\t\(.data | tostring)"'
     ;;
 
+  export)
+    # Determine output file
+    OUTPUT_FILE="${2:-loglife_export.json}"
+
+    # Make GET request and save to file
+    RESPONSE=$(curl $CURL_OPTS "${SERVER}/export" \
+      -H "X-API-Key: ${LOGLIFE_API_KEY}")
+
+    # Check if request was successful
+    if echo "$RESPONSE" | jq -e '.records' > /dev/null 2>&1; then
+      echo "$RESPONSE" | jq '.' > "$OUTPUT_FILE"
+      RECORD_COUNT=$(echo "$RESPONSE" | jq -r '.count')
+      echo "✓ Exported $RECORD_COUNT records to $OUTPUT_FILE"
+    else
+      echo "✗ Failed: $RESPONSE"
+      exit 1
+    fi
+    ;;
+
   *)
-    echo "Usage: $0 {record|delete|query}"
+    echo "Usage: $0 {record|delete|query|export}"
     echo ""
     echo "Commands:"
     echo "  record [--timestamp TIMESTAMP] <json_data>  Record new data"
     echo "  delete <record_id>                          Delete a record"
-    echo "  query [--date DATE] [--from DATE] [--to DATE] [--limit N]  Query records"
+    echo "  query [--limit N]                           Query recent records (default: 100)"
+    echo "  export [filename]                           Export all records to JSON file"
     echo ""
     echo "Examples:"
     echo "  # Record current data"
@@ -160,14 +158,13 @@ case "$1" in
     echo "  # Delete a record"
     echo "  $0 delete 123"
     echo ""
-    echo "  # Query all records"
+    echo "  # Query recent records"
     echo "  $0 query"
+    echo "  $0 query --limit 50"
     echo ""
-    echo "  # Query specific date"
-    echo "  $0 query --date 2025-12-20"
-    echo ""
-    echo "  # Query date range"
-    echo "  $0 query --from 2025-12-01 --to 2025-12-31"
+    echo "  # Export all data"
+    echo "  $0 export"
+    echo "  $0 export my_data.json"
     echo ""
     echo "Configuration:"
     echo "  Create a .env file with:"

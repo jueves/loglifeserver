@@ -128,14 +128,13 @@ cp .env.example .env
 # Record past event
 ./loglife record --timestamp '2025-12-20T14:30:00' '{"workout":"running","duration":30,"distance":5.2}'
 
-# Query all records
+# Query recent records (default: 100)
 ./loglife query
+./loglife query --limit 50
 
-# Query specific date
-./loglife query --date 2025-12-20
-
-# Query date range
-./loglife query --from 2025-12-01 --to 2025-12-31
+# Export all data to JSON file
+./loglife export
+./loglife export my_data.json
 
 # Delete a record (for corrections)
 ./loglife delete 123
@@ -236,16 +235,13 @@ curl -X POST http://localhost:3001/record \
 
 ### GET /records
 
-Query records with optional filters.
+Query recent records.
 
 **Headers:**
 - `X-API-Key`: Your API key (required)
 
 **Query Parameters:**
-- `limit`: Maximum number of records (default: 100)
-- `date`: Filter by specific date (YYYY-MM-DD)
-- `from_date`: Start date for range filter (YYYY-MM-DD)
-- `to_date`: End date for range filter (YYYY-MM-DD)
+- `limit`: Maximum number of records to return (default: 100)
 
 **Response:**
 ```json
@@ -266,21 +262,53 @@ Query records with optional filters.
 
 **Examples:**
 ```bash
-# Get all records (up to 100)
+# Get recent records (up to 100)
 curl -H "X-API-Key: your-api-key" \
   http://localhost:3001/records
 
-# Get records for specific date
-curl -H "X-API-Key: your-api-key" \
-  "http://localhost:3001/records?date=2025-12-20"
-
-# Get records for date range
-curl -H "X-API-Key: your-api-key" \
-  "http://localhost:3001/records?from_date=2025-12-01&to_date=2025-12-31"
-
 # Limit results
 curl -H "X-API-Key: your-api-key" \
-  "http://localhost:3001/records?limit=10"
+  "http://localhost:3001/records?limit=50"
+```
+
+### GET /export
+
+Export all records as JSON.
+
+**Headers:**
+- `X-API-Key`: Your API key (required)
+
+**Response:**
+```json
+{
+  "records": [
+    {
+      "id": 1,
+      "timestamp": "2025-12-20T14:30:00",
+      "data": {
+        "temperature": 25.5,
+        "humidity": 60
+      },
+      "created_at": "2025-12-20T14:35:00"
+    },
+    {
+      "id": 2,
+      "timestamp": "2025-12-20T15:00:00",
+      "data": {
+        "workout": "running",
+        "duration": 30
+      },
+      "created_at": "2025-12-20T15:05:00"
+    }
+  ],
+  "count": 2
+}
+```
+
+**Example:**
+```bash
+curl -H "X-API-Key: your-api-key" \
+  http://localhost:3001/export > my_data.json
 ```
 
 ### DELETE /record/{id}
@@ -393,17 +421,18 @@ docker-compose down
   '{"workout":"cycling","duration":45,"distance":15}'
 ```
 
-### Query and Analyze
+### Query and Export
 
 ```bash
-# See all records from last week
-./loglife query --from 2025-12-13 --to 2025-12-20
-
-# See records from specific day
-./loglife query --date 2025-12-20
-
-# Get latest 10 records
+# See recent records
+./loglife query
 ./loglife query --limit 10
+
+# Export all data for analysis
+./loglife export my_data.json
+
+# Then analyze with tools like jq, Python, R, etc.
+jq '.records[] | select(.data.workout == "running")' my_data.json
 ```
 
 ## Notes

@@ -351,52 +351,118 @@ class TestRecordsEndpoint:
         records = response.json()["data"]
         assert len(records) == 2
 
-    def test_filter_by_date(self, client, api_key):
-        """Test filtering records by specific date"""
-        # Create records on different dates
-        client.post(
-            "/record",
-            json={"timestamp": "2025-12-20T10:00:00", "data": {"day": "20"}},
-            headers={"X-API-Key": api_key}
-        )
-        client.post(
-            "/record",
-            json={"timestamp": "2025-12-21T10:00:00", "data": {"day": "21"}},
-            headers={"X-API-Key": api_key}
-        )
 
-        # Filter by date
+class TestExportEndpoint:
+    """Test GET /export endpoint functionality"""
+
+    def test_export_empty_database(self, client, api_key):
+        """Test exporting when database is empty"""
         response = client.get(
-            "/records?date=2025-12-20",
+            "/export",
             headers={"X-API-Key": api_key}
         )
-        records = response.json()["data"]
+        assert response.status_code == 200
+        data = response.json()
+        assert "records" in data
+        assert "count" in data
+        assert data["count"] == 0
+        assert data["records"] == []
 
-        assert len(records) == 1
-        assert records[0]["data"]["day"] == "20"
+    def test_export_with_records(self, client, api_key):
+        """Test exporting records"""
+        # Create some records
+        records_data = [
+            {"temperature": 25.5},
+            {"humidity": 60},
+            {"pressure": 1013}
+        ]
 
-    def test_filter_by_date_range(self, client, api_key):
-        """Test filtering records by date range"""
-        # Create records on different dates
-        dates = ["2025-12-18", "2025-12-20", "2025-12-22", "2025-12-25"]
-        for date in dates:
+        for data in records_data:
             client.post(
                 "/record",
-                json={"timestamp": f"{date}T10:00:00", "data": {"date": date}},
+                json={"data": data},
                 headers={"X-API-Key": api_key}
             )
 
-        # Filter by date range
+        # Export
         response = client.get(
-            "/records?from_date=2025-12-20&to_date=2025-12-23",
+            "/export",
             headers={"X-API-Key": api_key}
         )
-        records = response.json()["data"]
+        assert response.status_code == 200
+        export_data = response.json()
 
-        assert len(records) == 2
-        dates_in_range = [r["data"]["date"] for r in records]
-        assert "2025-12-20" in dates_in_range
-        assert "2025-12-22" in dates_in_range
+        assert export_data["count"] == 3
+        assert len(export_data["records"]) == 3
+
+        # Verify all records are present
+        exported_records = export_data["records"]
+        assert any(r["data"].get("temperature") == 25.5 for r in exported_records)
+        assert any(r["data"].get("humidity") == 60 for r in exported_records)
+        assert any(r["data"].get("pressure") == 1013 for r in exported_records)
+
+    def test_export_ordered_by_timestamp_asc(self, client, api_key):
+        """Test that exported records are ordered by timestamp ascending"""
+        # Create records with different timestamps
+        timestamps = [
+            "2025-12-20T12:00:00",
+            "2025-12-20T10:00:00",
+            "2025-12-20T11:00:00"
+        ]
+
+        for ts in timestamps:
+            client.post(
+                "/record",
+                json={"timestamp": ts, "data": {"time": ts}},
+                headers={"X-API-Key": api_key}
+            )
+
+        # Export
+        response = client.get(
+            "/export",
+            headers={"X-API-Key": api_key}
+        )
+        records = response.json()["records"]
+
+        # Should be in ascending order
+        assert records[0]["timestamp"] == "2025-12-20T10:00:00"
+        assert records[1]["timestamp"] == "2025-12-20T11:00:00"
+        assert records[2]["timestamp"] == "2025-12-20T12:00:00"
+
+    def test_export_structure(self, client, api_key):
+        """Test that exported records have the correct structure"""
+        # Create a record
+        client.post(
+            "/record",
+            json={"data": {"test": "value"}},
+            headers={"X-API-Key": api_key}
+        )
+
+        # Export
+        response = client.get(
+            "/export",
+            headers={"X-API-Key": api_key}
+        )
+        export_data = response.json()
+
+        assert "records" in export_data
+        assert "count" in export_data
+        assert isinstance(export_data["records"], list)
+        assert isinstance(export_data["count"], int)
+
+        record = export_data["records"][0]
+        assert "id" in record
+        assert "timestamp" in record
+        assert "data" in record
+        assert "created_at" in record
+
+    def test_export_requires_authentication(self, client):
+        """Test that export requires valid API key"""
+        response = client.get(
+            "/export",
+            headers={"X-API-Key": "wrong-key"}
+        )
+        assert response.status_code == 401
 
 
 class TestDatabaseIntegration:
