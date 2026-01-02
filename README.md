@@ -20,6 +20,7 @@ loglifeserver/
 │   └── main.py       # FastAPI application
 ├── scripts/          # Shell scripts and client
 │   ├── loglife       # Bash client for recording data
+│   ├── loglife.py    # Python client for recording data
 │   ├── generate_cert.sh
 │   ├── check_https_docker.sh
 │   └── test_generate_cert.sh
@@ -137,9 +138,9 @@ The `certs/` directory is automatically mounted in the container.
 
 ## Usage
 
-### Bash Client (Recommended)
+### Client Setup
 
-The client script automatically reads configuration from a `.env` file if present:
+Both bash and Python clients automatically read configuration from a `.env` file:
 
 ```bash
 # Create .env file (already git-ignored)
@@ -148,12 +149,24 @@ cp .env.example .env
 # Edit .env with your settings
 # LOGLIFE_SERVER=http://localhost:3001
 # LOGLIFE_API_KEY=your-secret-key
+```
 
-# Record current data
+### Bash Client (Quick & Easy)
+
+The bash client offers a simple `log` command with key:value syntax:
+
+```bash
+# Log data (easy format) - Recommended!
+./scripts/loglife log temperature:25.5 humidity:60
+./scripts/loglife log workout:running duration:30 distance:"5 km"
+./scripts/loglife log mood:happy notes:"Had a great day!"
+
+# Log with custom timestamp
+./scripts/loglife log --timestamp '2025-12-20T14:30:00' workout:running distance:"5 km"
+
+# Record using raw JSON (also supported)
 ./scripts/loglife record '{"temperature":25.5,"humidity":60}'
-
-# Record past event
-./scripts/loglife record --timestamp '2025-12-20T14:30:00' '{"workout":"running","duration":30,"distance":5.2}'
+./scripts/loglife record --timestamp '2025-12-20T14:30:00' '{"workout":"running","duration":30}'
 
 # Query recent records (default: 100)
 ./scripts/loglife query
@@ -167,16 +180,39 @@ cp .env.example .env
 ./scripts/loglife delete 123
 ```
 
-**Alternative**: Use environment variables directly
+### Python Client (Pythonic)
+
+The Python client offers the same functionality with proper argument parsing:
+
 ```bash
-export LOGLIFE_SERVER=http://localhost:3001
-export LOGLIFE_API_KEY=your-secret-key
-./scripts/loglife record '{"temperature":25.5}'
+# Install dependencies (if not already installed)
+pip install httpx python-dotenv
+
+# Log data (easy format)
+./scripts/loglife.py log temperature:25.5 humidity:60
+./scripts/loglife.py log workout:running duration:30 distance:"5 km"
+./scripts/loglife.py log --timestamp '2025-12-20T14:30:00' mood:happy notes:"Great!"
+
+# Record using raw JSON
+./scripts/loglife.py record '{"temperature":25.5,"humidity":60}'
+
+# Query and export
+./scripts/loglife.py query --limit 50
+./scripts/loglife.py export my_data.json
+
+# Delete a record
+./scripts/loglife.py delete 123
 ```
 
-**Optional**: Copy to PATH for system-wide use
+**Optional**: Install for system-wide use
 ```bash
+# Bash version
 sudo cp scripts/loglife /usr/local/bin/loglife
+
+# Python version
+sudo cp scripts/loglife.py /usr/local/bin/loglife.py
+# Or create a symlink
+sudo ln -s $(pwd)/scripts/loglife.py /usr/local/bin/loglife.py
 ```
 
 ## Data Model
@@ -366,8 +402,8 @@ To correct a record, delete the incorrect one and create a new one with the corr
 # Delete incorrect record
 ./scripts/loglife delete 123
 
-# Create corrected record with original timestamp
-./scripts/loglife record --timestamp '2025-12-20T14:30:00' '{"workout":"running","duration":35}'
+# Create corrected record with original timestamp (easy format)
+./scripts/loglife log --timestamp '2025-12-20T14:30:00' workout:running duration:35
 ```
 
 This approach keeps the data simple and maintains a clean audit trail via the `created_at` field.
@@ -427,25 +463,25 @@ docker-compose down
 ### Track Daily Variables
 
 ```bash
-# Morning routine
-./scripts/loglife record '{"weight":75.2,"sleep_hours":7.5,"mood":"good"}'
+# Morning routine (easy format)
+./scripts/loglife log weight:75.2 sleep_hours:7.5 mood:good
 
 # Workout
-./scripts/loglife record '{"workout":"running","duration":30,"distance":5.2}'
+./scripts/loglife log workout:running duration:30 distance:5.2
 
 # Meal
-./scripts/loglife record '{"meal":"lunch","calories":650,"protein":35}'
+./scripts/loglife log meal:lunch calories:650 protein:35
 
 # Evening metrics
-./scripts/loglife record '{"productivity":8,"stress":3,"energy":7}'
+./scripts/loglife log productivity:8 stress:3 energy:7
 ```
 
 ### Record Past Events
 
 ```bash
-# Forgot to log yesterday's workout
-./scripts/loglife record --timestamp '2025-12-19T18:00:00' \
-  '{"workout":"cycling","duration":45,"distance":15}'
+# Forgot to log yesterday's workout (easy format)
+./scripts/loglife log --timestamp '2025-12-19T18:00:00' \
+  workout:cycling duration:45 distance:15
 ```
 
 ### Query and Export
