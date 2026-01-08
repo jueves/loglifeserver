@@ -108,9 +108,8 @@ The server will now be available at `https://localhost:3001`
 
 **Note about self-signed certificates:**
 - Browsers will show a security warning - this is normal
-- For script usage, you may need to disable SSL verification:
-  - curl: use `-k` or `--insecure`
-  - The `./scripts/loglife` client handles this automatically
+- For curl, use `-k` flag: `curl -k https://localhost:3001/records`
+- The `./scripts/loglife` and `./scripts/loglife.py` clients handle this automatically
 
 ### Docker with HTTPS
 
@@ -290,7 +289,7 @@ Create a new record with optional custom timestamp.
 
 **Example:**
 ```bash
-curl -X POST http://localhost:3001/record \
+curl -k -X POST https://localhost:3001/record \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-api-key" \
   -d '{"data": {"temperature": 25.5, "humidity": 60}}'
@@ -325,13 +324,13 @@ Query recent records.
 
 **Examples:**
 ```bash
-# Get recent records (up to 100)
-curl -H "X-API-Key: your-api-key" \
-  http://localhost:3001/records
+# Get recent records
+curl -k -H "X-API-Key: your-api-key" \
+  https://localhost:3001/records
 
 # Limit results
-curl -H "X-API-Key: your-api-key" \
-  "http://localhost:3001/records?limit=50"
+curl -k -H "X-API-Key: your-api-key" \
+  "https://localhost:3001/records?limit=50"
 ```
 
 ### GET /export
@@ -370,8 +369,8 @@ Export all records as JSON.
 
 **Example:**
 ```bash
-curl -H "X-API-Key: your-api-key" \
-  http://localhost:3001/export > my_data.json
+curl -k -H "X-API-Key: your-api-key" \
+  https://localhost:3001/export > my_data.json
 ```
 
 ### DELETE /record/{id}
@@ -390,8 +389,8 @@ Delete a record by ID.
 
 **Example:**
 ```bash
-curl -X DELETE -H "X-API-Key: your-api-key" \
-  http://localhost:3001/record/123
+curl -k -X DELETE -H "X-API-Key: your-api-key" \
+  https://localhost:3001/record/123
 ```
 
 ## Making Corrections
